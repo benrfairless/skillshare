@@ -129,7 +129,7 @@ func cmdInit(args []string) error {
 	// Create config
 	cfg := &config.Config{
 		Source:  sourcePath,
-		Mode:    "symlink",
+		Mode:    "merge",
 		Targets: targets,
 		Ignore: []string{
 			"**/.DS_Store",
@@ -179,6 +179,36 @@ func cmdSync(args []string) error {
 
 	hasError := false
 	for name, target := range cfg.Targets {
+		// Determine mode: target-specific > global > default
+		mode := target.Mode
+		if mode == "" {
+			mode = cfg.Mode
+		}
+		if mode == "" {
+			mode = "merge"
+		}
+
+		if mode == "merge" {
+			// Merge mode: create individual skill symlinks
+			result, err := sync.SyncTargetMerge(name, target, cfg.Source, dryRun)
+			if err != nil {
+				ui.Error("%s: %v", name, err)
+				hasError = true
+				continue
+			}
+
+			if len(result.Linked) > 0 || len(result.Updated) > 0 {
+				ui.Success("%s: merged (%d linked, %d local, %d updated)",
+					name, len(result.Linked), len(result.Skipped), len(result.Updated))
+			} else if len(result.Skipped) > 0 {
+				ui.Success("%s: merged (%d local skills preserved)", name, len(result.Skipped))
+			} else {
+				ui.Success("%s: merged (no skills)", name)
+			}
+			continue
+		}
+
+		// Symlink mode (default)
 		status := sync.CheckStatus(target.Path, cfg.Source)
 
 		// Handle conflicts
@@ -244,16 +274,41 @@ func cmdStatus(args []string) error {
 
 	ui.Header("Targets")
 	for name, target := range cfg.Targets {
-		status := sync.CheckStatus(target.Path, cfg.Source)
-		detail := target.Path
-
-		switch status {
-		case sync.StatusConflict:
-			link, _ := os.Readlink(target.Path)
-			detail = fmt.Sprintf("%s -> %s", target.Path, link)
+		// Determine mode
+		mode := target.Mode
+		if mode == "" {
+			mode = cfg.Mode
+		}
+		if mode == "" {
+			mode = "merge"
 		}
 
-		ui.Status(name, status.String(), detail)
+		var statusStr, detail string
+
+		if mode == "merge" {
+			status, linkedCount, localCount := sync.CheckStatusMerge(target.Path, cfg.Source)
+			if status == sync.StatusMerged {
+				statusStr = "merged"
+				detail = fmt.Sprintf("%s (%d shared, %d local)", target.Path, linkedCount, localCount)
+			} else if status == sync.StatusLinked {
+				statusStr = "linked"
+				detail = fmt.Sprintf("%s (using symlink mode)", target.Path)
+			} else {
+				statusStr = status.String()
+				detail = fmt.Sprintf("%s (%d local)", target.Path, localCount)
+			}
+		} else {
+			status := sync.CheckStatus(target.Path, cfg.Source)
+			statusStr = status.String()
+			detail = target.Path
+
+			if status == sync.StatusConflict {
+				link, _ := os.Readlink(target.Path)
+				detail = fmt.Sprintf("%s -> %s", target.Path, link)
+			}
+		}
+
+		ui.Status(name, statusStr, detail)
 	}
 
 	return nil

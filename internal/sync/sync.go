@@ -19,6 +19,7 @@ const (
 	StatusHasFiles             // Target exists with files (needs migration)
 	StatusConflict             // Target is a symlink pointing elsewhere
 	StatusBroken               // Target is a broken symlink
+	StatusMerged               // Target uses merge mode (individual skill symlinks)
 )
 
 func (s TargetStatus) String() string {
@@ -33,6 +34,8 @@ func (s TargetStatus) String() string {
 		return "conflict"
 	case StatusBroken:
 		return "broken"
+	case StatusMerged:
+		return "merged"
 	default:
 		return "unknown"
 	}
@@ -235,4 +238,156 @@ func copyFile(src, dst string) error {
 
 	_, err = io.Copy(dstFile, srcFile)
 	return err
+}
+
+// MergeResult holds the result of a merge sync operation
+type MergeResult struct {
+	Linked  []string // Skills that were symlinked
+	Skipped []string // Skills that already exist in target (kept local)
+	Updated []string // Skills that had broken symlinks fixed
+}
+
+// SyncTargetMerge performs merge mode sync - creates symlinks for each skill individually
+// while preserving target-specific skills
+func SyncTargetMerge(name string, target config.TargetConfig, sourcePath string, dryRun bool) (*MergeResult, error) {
+	result := &MergeResult{}
+
+	// Ensure target directory exists
+	if err := os.MkdirAll(target.Path, 0755); err != nil {
+		return nil, fmt.Errorf("failed to create target directory: %w", err)
+	}
+
+	// Read skills from source
+	sourceEntries, err := os.ReadDir(sourcePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read source directory: %w", err)
+	}
+
+	for _, entry := range sourceEntries {
+		// Skip hidden files/directories
+		if entry.Name()[0] == '.' {
+			continue
+		}
+
+		// Only process directories (skills are directories)
+		if !entry.IsDir() {
+			continue
+		}
+
+		skillName := entry.Name()
+		sourceSkillPath := filepath.Join(sourcePath, skillName)
+		targetSkillPath := filepath.Join(target.Path, skillName)
+
+		// Check if skill exists in target
+		targetInfo, err := os.Lstat(targetSkillPath)
+		if err == nil {
+			// Something exists at target path
+			if targetInfo.Mode()&os.ModeSymlink != 0 {
+				// It's a symlink - check if it points to source
+				link, _ := os.Readlink(targetSkillPath)
+				absLink, _ := filepath.Abs(link)
+				absSource, _ := filepath.Abs(sourceSkillPath)
+
+				if absLink == absSource {
+					// Already correctly linked
+					result.Linked = append(result.Linked, skillName)
+					continue
+				}
+
+				// Symlink points elsewhere - broken or wrong
+				if dryRun {
+					fmt.Printf("[dry-run] Would fix symlink: %s\n", skillName)
+				} else {
+					os.Remove(targetSkillPath)
+					if err := os.Symlink(sourceSkillPath, targetSkillPath); err != nil {
+						return nil, fmt.Errorf("failed to create symlink for %s: %w", skillName, err)
+					}
+				}
+				result.Updated = append(result.Updated, skillName)
+			} else {
+				// It's a real directory - skip (preserve local skill)
+				result.Skipped = append(result.Skipped, skillName)
+			}
+		} else if os.IsNotExist(err) {
+			// Doesn't exist - create symlink
+			if dryRun {
+				fmt.Printf("[dry-run] Would create symlink: %s -> %s\n", targetSkillPath, sourceSkillPath)
+			} else {
+				if err := os.Symlink(sourceSkillPath, targetSkillPath); err != nil {
+					return nil, fmt.Errorf("failed to create symlink for %s: %w", skillName, err)
+				}
+			}
+			result.Linked = append(result.Linked, skillName)
+		} else {
+			return nil, fmt.Errorf("failed to check target skill %s: %w", skillName, err)
+		}
+	}
+
+	return result, nil
+}
+
+// CheckStatusMerge checks the status of a target in merge mode
+func CheckStatusMerge(targetPath, sourcePath string) (TargetStatus, int, int) {
+	// Returns: status, linked count, local count
+
+	info, err := os.Lstat(targetPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return StatusNotExist, 0, 0
+		}
+		return StatusUnknown, 0, 0
+	}
+
+	// If it's a symlink to source, it's using symlink mode not merge
+	if info.Mode()&os.ModeSymlink != 0 {
+		link, _ := os.Readlink(targetPath)
+		absLink, _ := filepath.Abs(link)
+		absSource, _ := filepath.Abs(sourcePath)
+		if absLink == absSource {
+			return StatusLinked, 0, 0
+		}
+		return StatusConflict, 0, 0
+	}
+
+	if !info.IsDir() {
+		return StatusUnknown, 0, 0
+	}
+
+	// Count linked vs local skills
+	linkedCount := 0
+	localCount := 0
+
+	entries, _ := os.ReadDir(targetPath)
+	for _, entry := range entries {
+		if entry.Name()[0] == '.' {
+			continue
+		}
+		if !entry.IsDir() && entry.Type()&os.ModeSymlink == 0 {
+			continue
+		}
+
+		skillPath := filepath.Join(targetPath, entry.Name())
+		info, err := os.Lstat(skillPath)
+		if err != nil {
+			continue
+		}
+
+		if info.Mode()&os.ModeSymlink != 0 {
+			// It's a symlink - check if it points to source
+			link, _ := os.Readlink(skillPath)
+			if filepath.Dir(link) == sourcePath || filepath.Dir(filepath.Join(filepath.Dir(skillPath), link)) == sourcePath {
+				linkedCount++
+			} else {
+				localCount++
+			}
+		} else {
+			localCount++
+		}
+	}
+
+	if linkedCount > 0 {
+		return StatusMerged, linkedCount, localCount
+	}
+
+	return StatusHasFiles, 0, localCount
 }

@@ -166,10 +166,11 @@ Config file: `~/.config/skillshare/config.yaml`
 
 ```yaml
 source: ~/.skills
-mode: symlink
+mode: merge   # default mode for all targets
 targets:
   claude:
     path: ~/.claude/skills
+    mode: symlink   # override: use full directory symlink
   codex:
     path: ~/.codex/skills
   cursor:
@@ -182,6 +183,15 @@ ignore:
   - "**/.DS_Store"
   - "**/.git/**"
 ```
+
+### Sync Modes
+
+| Mode | Behavior |
+|------|----------|
+| `merge` (default) | Each skill is symlinked individually. Local skills in target are preserved. |
+| `symlink` | Entire directory becomes a symlink to source. All targets share the same skills. |
+
+Use `symlink` mode when you want all targets to share exactly the same skills.
 
 ## How It Works
 
