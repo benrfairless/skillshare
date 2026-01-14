@@ -74,10 +74,10 @@ func TargetPath(path string) (warnings []string, err error) {
 		return nil, err
 	}
 
-	// Check if path ends with "skills" (common convention)
-	base := filepath.Base(path)
-	if base != "skills" {
-		warnings = append(warnings, fmt.Sprintf("path doesn't end with 'skills' (got '%s')", base))
+	// Check if path looks like a skills directory
+	if !IsLikelySkillsPath(path) {
+		base := filepath.Base(path)
+		warnings = append(warnings, fmt.Sprintf("path doesn't end with 'skills' or 'skill' (got '%s')", base))
 	}
 
 	// Check if path exists
@@ -102,10 +102,10 @@ func TargetPath(path string) (warnings []string, err error) {
 }
 
 // IsLikelySkillsPath checks if a path looks like a skills directory.
-// Returns true if the path ends with "skills" or is a known CLI skills path.
+// Returns true if the path ends with "skills", "skill", or is a known CLI skills path.
 func IsLikelySkillsPath(path string) bool {
 	base := filepath.Base(path)
-	if base == "skills" {
+	if base == "skills" || base == "skill" {
 		return true
 	}
 
