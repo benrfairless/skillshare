@@ -1,4 +1,4 @@
-module github.com/runkids/skillshare
+module skillshare
 
 go 1.25.5
 

@@ -69,12 +69,6 @@ Download from [Releases](https://github.com/runkids/skillshare/releases) and add
 brew install runkids/tap/skillshare
 ```
 
-### Using Go (alternative)
-
-```bash
-go install github.com/runkids/skillshare/cmd/skillshare@latest
-```
-
 ### Verify Installation
 
 ```bash
@@ -89,9 +83,6 @@ brew uninstall skillshare
 
 # Manual (curl install)
 sudo rm /usr/local/bin/skillshare
-
-# Go
-rm $(go env GOPATH)/bin/skillshare
 
 # Config and data (optional)
 rm -rf ~/.config/skillshare

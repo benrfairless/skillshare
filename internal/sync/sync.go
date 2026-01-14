@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/runkids/skillshare/internal/config"
+	"skillshare/internal/config"
 )
 
 // TargetStatus represents the state of a target
@@ -252,9 +252,24 @@ type MergeResult struct {
 func SyncTargetMerge(name string, target config.TargetConfig, sourcePath string, dryRun bool) (*MergeResult, error) {
 	result := &MergeResult{}
 
+	// Check if target is currently a symlink (symlink mode) - need to convert to merge mode
+	info, err := os.Lstat(target.Path)
+	if err == nil && info.Mode()&os.ModeSymlink != 0 {
+		// Target is a symlink - remove it to convert to merge mode
+		if dryRun {
+			fmt.Printf("[dry-run] Would convert from symlink mode to merge mode: %s\n", target.Path)
+		} else {
+			if err := os.Remove(target.Path); err != nil {
+				return nil, fmt.Errorf("failed to remove symlink for merge conversion: %w", err)
+			}
+		}
+	}
+
 	// Ensure target directory exists
-	if err := os.MkdirAll(target.Path, 0755); err != nil {
-		return nil, fmt.Errorf("failed to create target directory: %w", err)
+	if !dryRun {
+		if err := os.MkdirAll(target.Path, 0755); err != nil {
+			return nil, fmt.Errorf("failed to create target directory: %w", err)
+		}
 	}
 
 	// Read skills from source

@@ -7,10 +7,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/runkids/skillshare/internal/backup"
-	"github.com/runkids/skillshare/internal/config"
-	"github.com/runkids/skillshare/internal/sync"
-	"github.com/runkids/skillshare/internal/ui"
+	"skillshare/internal/backup"
+	"skillshare/internal/config"
+	"skillshare/internal/sync"
+	"skillshare/internal/ui"
 )
 
 var version = "dev"
@@ -69,6 +69,8 @@ Commands:
   diff [--target name]       Show differences between source and targets
   backup [--target name]     Create backup of target(s)
   doctor                     Check environment and diagnose issues
+  target <name>              Show target info
+  target <name> --mode MODE  Set target sync mode (merge|symlink)
   target add <name> <path>   Add a target
   target remove <name>       Unlink target and restore skills
   target remove --all        Unlink all targets
@@ -418,22 +420,26 @@ func cmdStatus(args []string) error {
 			status, linkedCount, localCount := sync.CheckStatusMerge(target.Path, cfg.Source)
 			if status == sync.StatusMerged {
 				statusStr = "merged"
-				detail = fmt.Sprintf("%s (%d shared, %d local)", target.Path, linkedCount, localCount)
+				detail = fmt.Sprintf("[%s] %s (%d shared, %d local)", mode, target.Path, linkedCount, localCount)
 			} else if status == sync.StatusLinked {
+				// Configured as merge but actually using symlink - needs resync
 				statusStr = "linked"
-				detail = fmt.Sprintf("%s (using symlink mode)", target.Path)
+				detail = fmt.Sprintf("[%s→needs sync] %s", mode, target.Path)
 			} else {
 				statusStr = status.String()
-				detail = fmt.Sprintf("%s (%d local)", target.Path, localCount)
+				detail = fmt.Sprintf("[%s] %s (%d local)", mode, target.Path, localCount)
 			}
 		} else {
 			status := sync.CheckStatus(target.Path, cfg.Source)
 			statusStr = status.String()
-			detail = target.Path
+			detail = fmt.Sprintf("[%s] %s", mode, target.Path)
 
 			if status == sync.StatusConflict {
 				link, _ := os.Readlink(target.Path)
-				detail = fmt.Sprintf("%s -> %s", target.Path, link)
+				detail = fmt.Sprintf("[%s] %s -> %s", mode, target.Path, link)
+			} else if status == sync.StatusMerged {
+				// Configured as symlink but actually using merge - needs resync
+				detail = fmt.Sprintf("[%s→needs sync] %s", mode, target.Path)
 			}
 		}
 
@@ -445,7 +451,7 @@ func cmdStatus(args []string) error {
 
 func cmdTarget(args []string) error {
 	if len(args) < 1 {
-		return fmt.Errorf("usage: skillshare target <add|remove|list> [args]")
+		return fmt.Errorf("usage: skillshare target <add|remove|list|name> [options]")
 	}
 
 	subcmd := args[0]
@@ -459,7 +465,8 @@ func cmdTarget(args []string) error {
 	case "list", "ls":
 		return targetList()
 	default:
-		return fmt.Errorf("unknown target subcommand: %s", subcmd)
+		// Assume it's a target name - show info or modify settings
+		return targetInfo(subcmd, subargs)
 	}
 }
 
@@ -644,6 +651,75 @@ func targetList() error {
 		}
 		fmt.Printf("  %-12s %s (%s)\n", name, target.Path, mode)
 	}
+
+	return nil
+}
+
+func targetInfo(name string, args []string) error {
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+
+	target, exists := cfg.Targets[name]
+	if !exists {
+		return fmt.Errorf("target '%s' not found. Use 'skillshare target list' to see available targets", name)
+	}
+
+	// Parse flags
+	var newMode string
+	for i := 0; i < len(args); i++ {
+		switch args[i] {
+		case "--mode", "-m":
+			if i+1 >= len(args) {
+				return fmt.Errorf("--mode requires a value (merge or symlink)")
+			}
+			newMode = args[i+1]
+			i++
+		}
+	}
+
+	// If --mode is provided, update the mode
+	if newMode != "" {
+		if newMode != "merge" && newMode != "symlink" {
+			return fmt.Errorf("invalid mode '%s'. Use 'merge' or 'symlink'", newMode)
+		}
+
+		oldMode := target.Mode
+		if oldMode == "" {
+			oldMode = cfg.Mode
+			if oldMode == "" {
+				oldMode = "merge"
+			}
+		}
+
+		target.Mode = newMode
+		cfg.Targets[name] = target
+		if err := cfg.Save(); err != nil {
+			return err
+		}
+
+		ui.Success("Changed %s mode: %s -> %s", name, oldMode, newMode)
+		ui.Info("Run 'skillshare sync' to apply the new mode")
+		return nil
+	}
+
+	// Show target info
+	mode := target.Mode
+	if mode == "" {
+		mode = cfg.Mode
+		if mode == "" {
+			mode = "merge"
+		}
+		mode = mode + " (default)"
+	}
+
+	status := sync.CheckStatus(target.Path, cfg.Source)
+
+	ui.Header(fmt.Sprintf("Target: %s", name))
+	fmt.Printf("  Path:   %s\n", target.Path)
+	fmt.Printf("  Mode:   %s\n", mode)
+	fmt.Printf("  Status: %s\n", status)
 
 	return nil
 }
@@ -920,6 +996,15 @@ func cmdDoctor(args []string) error {
 	// Check each target
 	ui.Header("Checking targets")
 	for name, target := range cfg.Targets {
+		// Determine mode
+		mode := target.Mode
+		if mode == "" {
+			mode = cfg.Mode
+		}
+		if mode == "" {
+			mode = "merge"
+		}
+
 		targetIssues := []string{}
 
 		// Check path exists
@@ -958,11 +1043,36 @@ func cmdDoctor(args []string) error {
 		}
 
 		if len(targetIssues) > 0 {
-			ui.Error("%s: %s", name, strings.Join(targetIssues, ", "))
+			ui.Error("%s [%s]: %s", name, mode, strings.Join(targetIssues, ", "))
 			issues++
 		} else {
-			status := sync.CheckStatus(target.Path, cfg.Source)
-			ui.Success("%s: %s", name, status.String())
+			var statusStr string
+			needsSync := false
+
+			if mode == "merge" {
+				status, linkedCount, localCount := sync.CheckStatusMerge(target.Path, cfg.Source)
+				if status == sync.StatusMerged {
+					statusStr = fmt.Sprintf("merged (%d shared, %d local)", linkedCount, localCount)
+				} else if status == sync.StatusLinked {
+					statusStr = "linked (needs sync to apply merge mode)"
+					needsSync = true
+				} else {
+					statusStr = status.String()
+				}
+			} else {
+				status := sync.CheckStatus(target.Path, cfg.Source)
+				statusStr = status.String()
+				if status == sync.StatusMerged {
+					statusStr = "merged (needs sync to apply symlink mode)"
+					needsSync = true
+				}
+			}
+
+			if needsSync {
+				ui.Warning("%s [%s]: %s", name, mode, statusStr)
+			} else {
+				ui.Success("%s [%s]: %s", name, mode, statusStr)
+			}
 		}
 	}
 
