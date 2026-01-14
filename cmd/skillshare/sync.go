@@ -1,0 +1,149 @@
+package main
+
+import (
+	"fmt"
+	"os"
+
+	"skillshare/internal/backup"
+	"skillshare/internal/config"
+	"skillshare/internal/sync"
+	"skillshare/internal/ui"
+)
+
+func cmdSync(args []string) error {
+	dryRun := false
+	force := false
+
+	for _, arg := range args {
+		switch arg {
+		case "--dry-run", "-n":
+			dryRun = true
+		case "--force", "-f":
+			force = true
+		}
+	}
+
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+
+	// Ensure source exists
+	if _, err := os.Stat(cfg.Source); os.IsNotExist(err) {
+		return fmt.Errorf("source directory does not exist: %s", cfg.Source)
+	}
+
+	// Backup targets before sync (only if not dry-run)
+	if !dryRun {
+		backupTargetsBeforeSync(cfg)
+	}
+
+	ui.Header("Syncing skills")
+	if dryRun {
+		ui.Warning("Dry run mode - no changes will be made")
+	}
+
+	hasError := false
+	for name, target := range cfg.Targets {
+		if err := syncTarget(name, target, cfg, dryRun, force); err != nil {
+			ui.Error("%s: %v", name, err)
+			hasError = true
+		}
+	}
+
+	if hasError {
+		return fmt.Errorf("some targets failed to sync")
+	}
+
+	return nil
+}
+
+func backupTargetsBeforeSync(cfg *config.Config) {
+	backedUp := false
+	for name, target := range cfg.Targets {
+		backupPath, err := backup.Create(name, target.Path)
+		if err != nil {
+			ui.Warning("Failed to backup %s: %v", name, err)
+		} else if backupPath != "" {
+			if !backedUp {
+				ui.Header("Backing up")
+				backedUp = true
+			}
+			ui.Success("%s -> %s", name, backupPath)
+		}
+	}
+}
+
+func syncTarget(name string, target config.TargetConfig, cfg *config.Config, dryRun, force bool) error {
+	// Determine mode: target-specific > global > default
+	mode := target.Mode
+	if mode == "" {
+		mode = cfg.Mode
+	}
+	if mode == "" {
+		mode = "merge"
+	}
+
+	if mode == "merge" {
+		return syncMergeMode(name, target, cfg.Source, dryRun)
+	}
+
+	return syncSymlinkMode(name, target, cfg.Source, dryRun, force)
+}
+
+func syncMergeMode(name string, target config.TargetConfig, source string, dryRun bool) error {
+	result, err := sync.SyncTargetMerge(name, target, source, dryRun)
+	if err != nil {
+		return err
+	}
+
+	if len(result.Linked) > 0 || len(result.Updated) > 0 {
+		ui.Success("%s: merged (%d linked, %d local, %d updated)",
+			name, len(result.Linked), len(result.Skipped), len(result.Updated))
+	} else if len(result.Skipped) > 0 {
+		ui.Success("%s: merged (%d local skills preserved)", name, len(result.Skipped))
+	} else {
+		ui.Success("%s: merged (no skills)", name)
+	}
+
+	return nil
+}
+
+func syncSymlinkMode(name string, target config.TargetConfig, source string, dryRun, force bool) error {
+	status := sync.CheckStatus(target.Path, source)
+
+	// Handle conflicts
+	if status == sync.StatusConflict && !force {
+		link, _ := os.Readlink(target.Path)
+		return fmt.Errorf("conflict - symlink points to %s (use --force to override)", link)
+	}
+
+	if status == sync.StatusConflict && force {
+		if !dryRun {
+			os.Remove(target.Path)
+		}
+	}
+
+	if err := sync.SyncTarget(name, target, source, dryRun); err != nil {
+		return err
+	}
+
+	switch status {
+	case sync.StatusLinked:
+		ui.Success("%s: already linked", name)
+	case sync.StatusNotExist:
+		ui.Success("%s: symlink created", name)
+		ui.Warning("  Symlink mode: deleting files in %s will delete from source!", target.Path)
+		ui.Info("  Use 'skillshare target remove %s' to safely unlink", name)
+	case sync.StatusHasFiles:
+		ui.Success("%s: files migrated and linked", name)
+		ui.Warning("  Symlink mode: deleting files in %s will delete from source!", target.Path)
+		ui.Info("  Use 'skillshare target remove %s' to safely unlink", name)
+	case sync.StatusBroken:
+		ui.Success("%s: broken link fixed", name)
+	case sync.StatusConflict:
+		ui.Success("%s: conflict resolved (forced)", name)
+	}
+
+	return nil
+}
