@@ -39,17 +39,16 @@ changelog:
       - "^test:"
       - "^ci:"
 
-# Homebrew 需要額外設定 PAT，暫時停用
-# brews:
-#   - repository:
-#       owner: runkids
-#       name: homebrew-tap
-#       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
-#     directory: Formula
-#     homepage: https://github.com/runkids/skillshare
-#     description: Share skills across AI CLI tools
-#     license: MIT
-#     install: |
-#       bin.install "skillshare"
-#     test: |
-#       system "#{bin}/skillshare", "version"
+brews:
+  - repository:
+      owner: runkids
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    directory: Formula
+    homepage: https://github.com/runkids/skillshare
+    description: Share skills across AI CLI tools
+    license: MIT
+    install: |
+      bin.install "skillshare"
+    test: |
+      system "#{bin}/skillshare", "version"

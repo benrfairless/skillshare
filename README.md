@@ -33,21 +33,51 @@ Keeping them in sync manually is tedious.
 
 ## Installation
 
-### Using Go
+### macOS
 
 ```bash
-go install github.com/runkids/skillshare/cmd/skillshare@latest
+# Apple Silicon (M1/M2/M3/M4)
+curl -sL https://github.com/runkids/skillshare/releases/latest/download/skillshare_0.1.0_darwin_arm64.tar.gz | tar xz
+sudo mv skillshare /usr/local/bin/
+
+# Intel
+curl -sL https://github.com/runkids/skillshare/releases/latest/download/skillshare_0.1.0_darwin_amd64.tar.gz | tar xz
+sudo mv skillshare /usr/local/bin/
 ```
 
-### Using Homebrew (macOS/Linux)
+### Linux
+
+```bash
+# x86_64
+curl -sL https://github.com/runkids/skillshare/releases/latest/download/skillshare_0.1.0_linux_amd64.tar.gz | tar xz
+sudo mv skillshare /usr/local/bin/
+
+# ARM64
+curl -sL https://github.com/runkids/skillshare/releases/latest/download/skillshare_0.1.0_linux_arm64.tar.gz | tar xz
+sudo mv skillshare /usr/local/bin/
+```
+
+### Windows
+
+Download from [Releases](https://github.com/runkids/skillshare/releases) and add to PATH.
+
+### Homebrew (macOS/Linux)
 
 ```bash
 brew install runkids/tap/skillshare
 ```
 
-### Download Binary
+### Using Go (alternative)
 
-Download from [Releases](https://github.com/runkids/skillshare/releases).
+```bash
+go install github.com/runkids/skillshare/cmd/skillshare@latest
+```
+
+### Verify Installation
+
+```bash
+skillshare version
+```
 
 ## Quick Start
 
