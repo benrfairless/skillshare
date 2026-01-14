@@ -13,7 +13,7 @@
 
 <p align="center">
   <strong>Sync skills to all your AI CLI tools with one command</strong><br>
-  Supports Claude Code, Codex CLI, Cursor, Gemini CLI, OpenCode
+  Supports Claude Code, Codex CLI, GitHub Copilot, Cursor, Gemini CLI, OpenCode
 </p>
 
 <p align="center">
