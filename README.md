@@ -45,6 +45,14 @@ skillshare sync    # Syncs skills to all targets
 
 Done! Your skills are now synced across all AI CLI tools.
 
+## Built-in Skill
+
+After syncing, your AI CLI tools can manage skills directly:
+
+> "Pull my latest skill from Claude and sync to all targets"
+
+The `skillshare` skill is included and ready to use.
+
 ## How It Works
 
 ```
