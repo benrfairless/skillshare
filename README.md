@@ -420,6 +420,24 @@ cd ~/.config/skillshare/skills
 git checkout -- deleted-skill/
 ```
 
+**How does `target remove` work? Is it safe?**
+
+Yes, it's safe. The mechanism depends on sync mode:
+
+- **Symlink mode**: Removes the symlink and copies source contents back to target
+- **Merge mode**: Only removes symlinks pointing to source, copies them back as real files, preserves local-only skills
+
+```
+target remove claude
+       │
+       ├─► Backup target first
+       ├─► Detect sync mode
+       ├─► Unlink (symlink → copy back)
+       └─► Remove from config.yaml
+```
+
+This is why `skillshare target remove` is safe, while `rm -rf ~/.claude/skills` would delete your source files.
+
 ## Common Issues
 
 - Seeing `config not found: run 'skillshare init' first`: run `skillshare init` (add `--source` if you want a custom path).
