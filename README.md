@@ -179,24 +179,25 @@ skillshare install ComposioHQ/awesome-claude-skills     # Another repo
 When installing from a git repo without a specific path, skillshare discovers all skills and lets you choose:
 
 ```bash
-$ skillshare install ComposioHQ/awesome-claude-skills
+$ skillshare install anthropics/skills
 
 Discovering skills
----------------------------------------------
-Source: github.com/ComposioHQ/awesome-claude-skills
-Cloning repository...
+─────────────────────────────────────────
+→ Source: github.com/anthropics/skills
+→ Cloning repository...
 
-✓ Found 5 skill(s):
+✓ Found 17 skill(s)
 
-  [1] commit-reviewer
-      skills/commit-reviewer
-  [2] code-documenter
-      skills/code-documenter
-  [3] test-generator
-      skills/test-generator
+? Select skills to install:
+  [Use arrows to move, space to select, <right> to all, <left> to none, type to filter]
+> [ ]  algorithmic-art  (skills/algorithmic-art)
+  [ ]  brand-guidelines  (skills/brand-guidelines)
+  [ ]  canvas-design  (skills/canvas-design)
+  [ ]  doc-coauthoring  (skills/doc-coauthoring)
+  [ ]  frontend-design  (skills/frontend-design)
+  [ ]  mcp-builder  (skills/mcp-builder)
+  [ ]  pdf  (skills/pdf)
   ...
-
-Enter numbers to install (e.g., 1,2,3 or 'all' or 'q' to quit): 1,3
 ```
 
 ### Direct Install (Specific Path)

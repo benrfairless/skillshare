@@ -1,12 +1,11 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
-	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
+
+	"github.com/AlecAivazis/survey/v2"
 
 	"skillshare/internal/config"
 	"skillshare/internal/install"
@@ -94,16 +93,15 @@ func handleGitDiscovery(source *install.Source, cfg *config.Config, opts install
 		return nil
 	}
 
-	// Display discovered skills
-	ui.Success("Found %d skill(s):", len(discovery.Skills))
-	fmt.Println()
-	for i, skill := range discovery.Skills {
-		fmt.Printf("  [%d] %s\n", i+1, skill.Name)
-		fmt.Printf("      %s\n", skill.Path)
-	}
+	ui.Success("Found %d skill(s)", len(discovery.Skills))
 	fmt.Println()
 
 	if opts.DryRun {
+		// Show skill list in dry-run mode
+		for _, skill := range discovery.Skills {
+			ui.Info("  %s  (%s)", skill.Name, skill.Path)
+		}
+		fmt.Println()
 		ui.Warning("[dry-run] Would prompt for selection")
 		return nil
 	}
@@ -150,46 +148,29 @@ func handleGitDiscovery(source *install.Source, cfg *config.Config, opts install
 }
 
 func promptSkillSelection(skills []install.SkillInfo) ([]install.SkillInfo, error) {
-	fmt.Print("Enter numbers to install (e.g., 1,2,3 or 'all' or 'q' to quit): ")
+	// Build options list with skill name and path
+	options := make([]string, len(skills))
+	for i, skill := range skills {
+		options[i] = fmt.Sprintf("%s  (%s)", skill.Name, skill.Path)
+	}
 
-	reader := bufio.NewReader(os.Stdin)
-	input, err := reader.ReadString('\n')
+	var selectedIndices []int
+	prompt := &survey.MultiSelect{
+		Message:  "Select skills to install:",
+		Options:  options,
+		PageSize: 15,
+		Help:     "Use arrow keys to navigate, space to select, enter to confirm",
+	}
+
+	err := survey.AskOne(prompt, &selectedIndices)
 	if err != nil {
-		return nil, err
+		return nil, nil // User cancelled (Ctrl+C)
 	}
 
-	input = strings.TrimSpace(strings.ToLower(input))
-
-	if input == "q" || input == "quit" || input == "" {
-		return nil, nil
-	}
-
-	if input == "all" || input == "a" {
-		return skills, nil
-	}
-
-	// Parse comma-separated numbers
-	var selected []install.SkillInfo
-	parts := strings.Split(input, ",")
-	seen := make(map[int]bool)
-
-	for _, part := range parts {
-		part = strings.TrimSpace(part)
-		num, err := strconv.Atoi(part)
-		if err != nil {
-			ui.Warning("Invalid number: %s", part)
-			continue
-		}
-
-		if num < 1 || num > len(skills) {
-			ui.Warning("Out of range: %d", num)
-			continue
-		}
-
-		if !seen[num] {
-			seen[num] = true
-			selected = append(selected, skills[num-1])
-		}
+	// Map indices back to skills
+	selected := make([]install.SkillInfo, len(selectedIndices))
+	for i, idx := range selectedIndices {
+		selected[i] = skills[idx]
 	}
 
 	return selected, nil
