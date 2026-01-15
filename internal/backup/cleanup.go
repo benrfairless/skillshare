@@ -8,17 +8,17 @@ import (
 
 // CleanupConfig holds backup cleanup configuration
 type CleanupConfig struct {
-	MaxAge     time.Duration // Maximum age of backups to keep (0 = no limit)
-	MaxCount   int           // Maximum number of backups to keep (0 = no limit)
-	MaxSizeMB  int64         // Maximum total size in MB (0 = no limit)
+	MaxAge    time.Duration // Maximum age of backups to keep (0 = no limit)
+	MaxCount  int           // Maximum number of backups to keep (0 = no limit)
+	MaxSizeMB int64         // Maximum total size in MB (0 = no limit)
 }
 
 // DefaultCleanupConfig returns sensible defaults for cleanup
 func DefaultCleanupConfig() CleanupConfig {
 	return CleanupConfig{
 		MaxAge:    30 * 24 * time.Hour, // 30 days
-		MaxCount:  10,                   // Keep last 10 backups
-		MaxSizeMB: 500,                  // 500 MB max
+		MaxCount:  10,                  // Keep last 10 backups
+		MaxSizeMB: 500,                 // 500 MB max
 	}
 }
 

@@ -14,13 +14,13 @@ import (
 type TargetStatus int
 
 const (
-	StatusUnknown TargetStatus = iota
-	StatusLinked               // Target is a symlink pointing to source
-	StatusNotExist             // Target doesn't exist
-	StatusHasFiles             // Target exists with files (needs migration)
-	StatusConflict             // Target is a symlink pointing elsewhere
-	StatusBroken               // Target is a broken symlink
-	StatusMerged               // Target uses merge mode (individual skill symlinks)
+	StatusUnknown  TargetStatus = iota
+	StatusLinked                // Target is a symlink pointing to source
+	StatusNotExist              // Target doesn't exist
+	StatusHasFiles              // Target exists with files (needs migration)
+	StatusConflict              // Target is a symlink pointing elsewhere
+	StatusBroken                // Target is a broken symlink
+	StatusMerged                // Target uses merge mode (individual skill symlinks)
 )
 
 func (s TargetStatus) String() string {

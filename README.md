@@ -40,8 +40,9 @@ brew install runkids/tap/skillshare
 ## Quick Start
 
 ```bash
-skillshare init    # Auto-detects installed CLIs, sets up git
-skillshare sync    # Syncs skills to all targets
+skillshare init --dry-run  # Preview setup
+skillshare init            # Auto-detects installed CLIs, sets up git
+skillshare sync            # Syncs skills to all targets
 ```
 
 Done! Your skills are now synced across all AI CLI tools.
@@ -77,6 +78,7 @@ Done! Your skills are now synced across all AI CLI tools.
 | Command | Description |
 |---------|-------------|
 | `init` | Initialize skillshare, detect CLIs, setup git |
+| `install` | Install a skill from local path or git repo |
 | `sync` | Sync skills to all targets |
 | `status` | Show source, targets, and sync state |
 | `diff` | Show differences between source and targets |
@@ -86,6 +88,10 @@ Done! Your skills are now synced across all AI CLI tools.
 | `doctor` | Diagnose configuration issues |
 | `target` | Manage targets (add/remove/list/mode) |
 
+### Dry Run
+
+Preview changes without modifying files. See [Dry Run](#dry-run) for all supported commands.
+
 ---
 
 # Detailed Documentation
@@ -93,6 +99,8 @@ Done! Your skills are now synced across all AI CLI tools.
 Jump to a section:
 
 - [Detailed Installation](#detailed-installation)
+- [Install Skills](#install-skills)
+- [Dry Run](#dry-run)
 - [Sync Modes](#sync-modes)
 - [Backup & Restore](#backup--restore)
 - [Configuration](#configuration)
@@ -134,6 +142,105 @@ Download from [Releases](https://github.com/runkids/skillshare/releases) and add
 brew uninstall skillshare              # Homebrew
 sudo rm /usr/local/bin/skillshare      # Manual install
 rm -rf ~/.config/skillshare            # Config & data (optional)
+```
+
+## Install Skills
+
+Install skills from local paths or git repositories directly into your source directory.
+
+### From Git Repository (Discovery Mode)
+
+When installing from a git repo without a specific path, skillshare discovers all skills and lets you choose:
+
+```bash
+$ skillshare install github.com/ComposioHQ/awesome-claude-skills
+
+Discovering skills
+---------------------------------------------
+Source: github.com/ComposioHQ/awesome-claude-skills
+Cloning repository...
+
+✓ Found 5 skill(s):
+
+  [1] commit-reviewer
+      skills/commit-reviewer
+  [2] code-documenter
+      skills/code-documenter
+  [3] test-generator
+      skills/test-generator
+  ...
+
+Enter numbers to install (e.g., 1,2,3 or 'all' or 'q' to quit): 1,3
+```
+
+### Direct Install (Specific Path)
+
+Install a specific skill directly by providing the full path:
+
+```bash
+# From GitHub subdirectory (monorepo)
+skillshare install github.com/google-gemini/gemini-cli/packages/core/src/skills/builtin/skill-creator
+
+# From local path
+skillshare install ~/Downloads/my-skill
+
+# From SSH git URL
+skillshare install git@github.com:user/repo.git
+```
+
+### Options
+
+| Option | Description |
+|--------|-------------|
+| `--name <name>` | Override the skill name (direct install only) |
+| `--force, -f` | Overwrite if skill already exists |
+| `--update, -u` | Update existing installation (git pull) |
+| `--dry-run, -n` | Preview discovered skills without installing |
+
+### Examples
+
+```bash
+# Preview available skills in a repo
+skillshare install github.com/ComposioHQ/awesome-claude-skills --dry-run
+
+# Install specific skill with custom name
+skillshare install github.com/google-gemini/gemini-cli/packages/core/src/skills/builtin/skill-creator --name my-skill-creator
+
+# Force overwrite existing
+skillshare install ~/my-skill --force
+
+# Update existing git-based installation
+skillshare install github.com/user/skill-repo --update
+```
+
+After installing, run `skillshare sync` to distribute the skill to all targets.
+
+## Dry Run
+
+Preview changes without modifying files. Supported commands:
+
+```bash
+skillshare init --dry-run              # Preview init setup
+skillshare install <source> --dry-run  # Preview install
+
+skillshare sync --dry-run              # Preview sync changes
+skillshare sync -n                     # Short flag for sync
+
+skillshare pull --dry-run              # Preview pull changes
+skillshare pull -n                     # Short flag for pull
+skillshare pull claude -n              # Preview pull for one target
+skillshare pull --all -n               # Preview pull for all targets
+
+skillshare backup --dry-run            # Preview backups
+skillshare backup -n                   # Short flag for backup
+skillshare backup --cleanup -n         # Preview cleanup
+skillshare backup --list               # List backups (read-only)
+
+skillshare restore claude -n           # Preview restore from latest
+skillshare restore claude --from 2026-01-14_21-22-18 -n  # Preview restore from timestamp
+
+skillshare target remove claude -n     # Preview unlink
+skillshare target remove --all -n      # Preview unlink all
 ```
 
 ## Sync Modes

@@ -2,7 +2,10 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
+	"time"
 
 	"skillshare/internal/backup"
 	"skillshare/internal/config"
@@ -13,6 +16,7 @@ func cmdBackup(args []string) error {
 	var targetName string
 	doList := false
 	doCleanup := false
+	dryRun := false
 
 	for i := 0; i < len(args); i++ {
 		switch args[i] {
@@ -20,6 +24,8 @@ func cmdBackup(args []string) error {
 			doList = true
 		case "--cleanup", "-c":
 			doCleanup = true
+		case "--dry-run", "-n":
+			dryRun = true
 		case "--target", "-t":
 			if i+1 < len(args) {
 				targetName = args[i+1]
@@ -35,13 +41,16 @@ func cmdBackup(args []string) error {
 	}
 
 	if doCleanup {
+		if dryRun {
+			return backupCleanupDryRun()
+		}
 		return backupCleanup()
 	}
 
-	return createBackup(targetName)
+	return createBackup(targetName, dryRun)
 }
 
-func createBackup(targetName string) error {
+func createBackup(targetName string, dryRun bool) error {
 	cfg, err := config.Load()
 	if err != nil {
 		return err
@@ -57,6 +66,16 @@ func createBackup(targetName string) error {
 	}
 
 	ui.Header("Creating backup")
+	if dryRun {
+		ui.Warning("Dry run mode - no backups will be created")
+		for name, target := range targets {
+			if err := previewBackup(name, target.Path); err != nil {
+				ui.Warning("Failed to inspect %s: %v", name, err)
+			}
+		}
+		return nil
+	}
+
 	created := 0
 	for name, target := range targets {
 		backupPath, err := backup.Create(name, target.Path)
@@ -89,6 +108,39 @@ func createBackup(targetName string) error {
 			fmt.Printf("  %s %s (%s)\n", b.Timestamp, ui.Gray+strings.Join(b.Targets, ", ")+ui.Reset, b.Path)
 		}
 	}
+
+	return nil
+}
+
+func previewBackup(targetName, targetPath string) error {
+	backupDir := backup.BackupDir()
+	if backupDir == "" {
+		return fmt.Errorf("cannot determine backup directory: home directory not found")
+	}
+
+	info, err := os.Lstat(targetPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			ui.Info("%s: nothing to backup (missing)", targetName)
+			return nil
+		}
+		return err
+	}
+
+	if info.Mode()&os.ModeSymlink != 0 {
+		ui.Info("%s: nothing to backup (symlink)", targetName)
+		return nil
+	}
+
+	entries, err := os.ReadDir(targetPath)
+	if err != nil || len(entries) == 0 {
+		ui.Info("%s: nothing to backup (empty)", targetName)
+		return nil
+	}
+
+	timestamp := time.Now().Format("2006-01-02_15-04-05")
+	backupPath := filepath.Join(backupDir, timestamp, targetName)
+	ui.Info("%s: would backup to %s", targetName, backupPath)
 
 	return nil
 }
@@ -155,14 +207,73 @@ func backupCleanup() error {
 	return nil
 }
 
+func backupCleanupDryRun() error {
+	ui.Header("Cleaning up old backups")
+
+	backups, err := backup.List()
+	if err != nil {
+		return err
+	}
+
+	if len(backups) == 0 {
+		ui.Info("No backups to clean up")
+		return nil
+	}
+
+	totalSize, _ := backup.TotalSize()
+	ui.Info("Current: %d backups, %.1f MB total", len(backups), float64(totalSize)/(1024*1024))
+
+	cfg := backup.DefaultCleanupConfig()
+	removed, freed := planBackupCleanup(backups, cfg, time.Now())
+	if removed > 0 {
+		ui.Warning("Dry run - would remove %d old backups (free %.1f MB)", removed, float64(freed)/(1024*1024))
+	} else {
+		ui.Info("Dry run - no backups needed to be removed")
+	}
+
+	return nil
+}
+
+func planBackupCleanup(backups []backup.BackupInfo, cfg backup.CleanupConfig, now time.Time) (int, int64) {
+	removed := 0
+	var removedSize int64
+	var totalSize int64
+
+	for i, backupInfo := range backups {
+		shouldRemove := false
+
+		if cfg.MaxAge > 0 && now.Sub(backupInfo.Date) > cfg.MaxAge {
+			shouldRemove = true
+		}
+
+		if cfg.MaxCount > 0 && i >= cfg.MaxCount {
+			shouldRemove = true
+		}
+
+		size := backup.Size(backupInfo.Path)
+		totalSize += size
+		if cfg.MaxSizeMB > 0 && totalSize > cfg.MaxSizeMB*1024*1024 {
+			shouldRemove = true
+		}
+
+		if shouldRemove {
+			removed++
+			removedSize += size
+		}
+	}
+
+	return removed, removedSize
+}
+
 func cmdRestore(args []string) error {
 	if len(args) < 1 {
-		return fmt.Errorf("usage: skillshare restore <target> [--from <timestamp>] [--force]")
+		return fmt.Errorf("usage: skillshare restore <target> [--from <timestamp>] [--force] [--dry-run]")
 	}
 
 	var targetName string
 	var fromTimestamp string
 	force := false
+	dryRun := false
 
 	for i := 0; i < len(args); i++ {
 		switch args[i] {
@@ -173,6 +284,8 @@ func cmdRestore(args []string) error {
 			}
 		case "--force":
 			force = true
+		case "--dry-run", "-n":
+			dryRun = true
 		default:
 			if targetName == "" {
 				targetName = args[i]
@@ -192,7 +305,18 @@ func cmdRestore(args []string) error {
 
 	ui.Header(fmt.Sprintf("Restoring %s", targetName))
 
+	if dryRun {
+		ui.Warning("Dry run mode - no changes will be made")
+	}
+
 	opts := backup.RestoreOptions{Force: force}
+
+	if dryRun {
+		if fromTimestamp != "" {
+			return previewRestoreFromTimestamp(targetName, target.Path, fromTimestamp, opts)
+		}
+		return previewRestoreFromLatest(targetName, target.Path, opts)
+	}
 
 	if fromTimestamp != "" {
 		return restoreFromTimestamp(targetName, target.Path, fromTimestamp, opts)
@@ -220,5 +344,38 @@ func restoreFromLatest(targetName, targetPath string, opts backup.RestoreOptions
 		return err
 	}
 	ui.Success("Restored %s from latest backup (%s)", targetName, timestamp)
+	return nil
+}
+
+func previewRestoreFromTimestamp(targetName, targetPath, timestamp string, opts backup.RestoreOptions) error {
+	backupInfo, err := backup.GetBackupByTimestamp(timestamp)
+	if err != nil {
+		return err
+	}
+
+	if err := backup.ValidateRestore(backupInfo.Path, targetName, targetPath, opts); err != nil {
+		return err
+	}
+
+	ui.Info("Would restore %s from backup %s", targetName, timestamp)
+	return nil
+}
+
+func previewRestoreFromLatest(targetName, targetPath string, opts backup.RestoreOptions) error {
+	backups, err := backup.FindBackupsForTarget(targetName)
+	if err != nil {
+		return err
+	}
+
+	if len(backups) == 0 {
+		return fmt.Errorf("no backup found for target '%s'", targetName)
+	}
+
+	latest := backups[0]
+	if err := backup.ValidateRestore(latest.Path, targetName, targetPath, opts); err != nil {
+		return err
+	}
+
+	ui.Info("Would restore %s from latest backup (%s)", targetName, latest.Timestamp)
 	return nil
 }

@@ -18,6 +18,7 @@ func cmdInit(args []string) error {
 		return fmt.Errorf("cannot determine home directory: %w", err)
 	}
 	sourcePath := "" // Will be determined
+	dryRun := false
 
 	// Parse args
 	for i := 0; i < len(args); i++ {
@@ -28,6 +29,8 @@ func cmdInit(args []string) error {
 			}
 			sourcePath = args[i+1]
 			i++
+		case "--dry-run", "-n":
+			dryRun = true
 		}
 	}
 
@@ -60,14 +63,24 @@ func cmdInit(args []string) error {
 	// Ask user if they want to initialize from existing skills
 	copyFrom, copyFromName := promptCopyFrom(withSkills)
 
+	if dryRun {
+		ui.Warning("Dry run mode - no changes will be made")
+	}
+
 	// Create source directory if needed
-	if err := os.MkdirAll(sourcePath, 0755); err != nil {
+	if dryRun {
+		if _, err := os.Stat(sourcePath); err == nil {
+			ui.Info("Source directory exists: %s", sourcePath)
+		} else {
+			ui.Info("Would create source directory: %s", sourcePath)
+		}
+	} else if err := os.MkdirAll(sourcePath, 0755); err != nil {
 		return fmt.Errorf("failed to create source directory: %w", err)
 	}
 
 	// Copy skills from selected directory
 	if copyFrom != "" {
-		copySkillsToSource(copyFrom, sourcePath)
+		copySkillsToSource(copyFrom, sourcePath, dryRun)
 	}
 
 	// Build targets list
@@ -84,15 +97,24 @@ func cmdInit(args []string) error {
 		},
 	}
 
-	if err := cfg.Save(); err != nil {
+	if dryRun {
+		summarizeInitConfig(cfg)
+	} else if err := cfg.Save(); err != nil {
 		return err
 	}
 
 	// Initialize git in source directory for safety
-	initGitIfNeeded(sourcePath)
+	initGitIfNeeded(sourcePath, dryRun)
 
 	// Create default skillshare skill
-	createDefaultSkill(sourcePath)
+	createDefaultSkill(sourcePath, dryRun)
+
+	if dryRun {
+		ui.Header("Dry run complete")
+		ui.Info("Would write config: %s", config.ConfigPath())
+		ui.Info("Run 'skillshare init' to apply these changes")
+		return nil
+	}
 
 	ui.Header("Initialized successfully")
 	ui.Success("Source: %s", sourcePath)
@@ -191,9 +213,25 @@ func promptCopyFrom(withSkills []detectedDir) (copyFrom, copyFromName string) {
 	return copyFrom, copyFromName
 }
 
-func copySkillsToSource(copyFrom, sourcePath string) {
+func copySkillsToSource(copyFrom, sourcePath string, dryRun bool) {
+	entries, err := os.ReadDir(copyFrom)
+	if err != nil {
+		ui.Warning("Failed to read %s: %v", copyFrom, err)
+		return
+	}
+
+	if dryRun {
+		copyCount := 0
+		for _, entry := range entries {
+			if entry.IsDir() && !utils.IsHidden(entry.Name()) {
+				copyCount++
+			}
+		}
+		ui.Info("Would copy %d skills to %s", copyCount, sourcePath)
+		return
+	}
+
 	ui.Info("Copying skills to %s...", sourcePath)
-	entries, _ := os.ReadDir(copyFrom)
 	copied := 0
 	for _, entry := range entries {
 		if !entry.IsDir() || utils.IsHidden(entry.Name()) {
@@ -265,7 +303,29 @@ func buildTargetsList(detected []detectedDir, copyFrom, copyFromName string) map
 	return targets
 }
 
-func initGitIfNeeded(sourcePath string) {
+func summarizeInitConfig(cfg *config.Config) {
+	ui.Header("Planned configuration")
+	ui.Info("Source: %s", cfg.Source)
+
+	if len(cfg.Targets) == 0 {
+		ui.Info("Targets: none")
+		return
+	}
+
+	ui.Info("Targets: %d", len(cfg.Targets))
+	for name, target := range cfg.Targets {
+		mode := target.Mode
+		if mode == "" {
+			mode = cfg.Mode
+		}
+		if mode == "" {
+			mode = "merge"
+		}
+		fmt.Printf("  %-12s %s (%s)\n", name, target.Path, mode)
+	}
+}
+
+func initGitIfNeeded(sourcePath string, dryRun bool) {
 	gitDir := filepath.Join(sourcePath, ".git")
 	if _, err := os.Stat(gitDir); err == nil {
 		ui.Info("Git already initialized in source directory")
@@ -281,8 +341,17 @@ func initGitIfNeeded(sourcePath string) {
 	input = strings.ToLower(strings.TrimSpace(input))
 
 	if input != "" && input != "y" && input != "yes" {
+		if dryRun {
+			ui.Info("Dry run - skipped git initialization")
+			return
+		}
 		ui.Info("Skipped git initialization")
 		ui.Warning("Without git, deleted skills cannot be recovered!")
+		return
+	}
+
+	if dryRun {
+		ui.Info("Dry run - would initialize git in %s", sourcePath)
 		return
 	}
 
@@ -325,11 +394,16 @@ func initGitIfNeeded(sourcePath string) {
 	ui.Info("Push to a remote repo for backup: git remote add origin <url>")
 }
 
-func createDefaultSkill(sourcePath string) {
+func createDefaultSkill(sourcePath string, dryRun bool) {
 	skillshareSkillDir := filepath.Join(sourcePath, "skillshare")
 	skillshareSkillFile := filepath.Join(skillshareSkillDir, "SKILL.md")
 
 	if _, err := os.Stat(skillshareSkillFile); err == nil {
+		return
+	}
+
+	if dryRun {
+		ui.Info("Would create default skill: skillshare")
 		return
 	}
 

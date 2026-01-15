@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"skillshare/internal/testutil"
 )
@@ -156,4 +157,61 @@ targets: {}
 
 	result.AssertSuccess(t)
 	result.AssertOutputContains(t, "Cleaning")
+}
+
+func TestBackup_DryRun_DoesNotCreateBackup(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	targetPath := sb.CreateTarget("claude")
+	localSkillPath := filepath.Join(targetPath, "local-skill")
+	os.MkdirAll(localSkillPath, 0755)
+	os.WriteFile(filepath.Join(localSkillPath, "SKILL.md"), []byte("# Local"), 0644)
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + targetPath + `
+`)
+
+	result := sb.RunCLI("backup", "--dry-run")
+
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "Dry run")
+
+	backupDir := filepath.Join(sb.Home, ".config", "skillshare", "backups")
+	entries, err := os.ReadDir(backupDir)
+	if err != nil {
+		t.Fatalf("failed to read backup dir: %v", err)
+	}
+	if len(entries) != 0 {
+		t.Error("dry-run should not create backups")
+	}
+}
+
+func TestBackup_CleanupDryRun_DoesNotRemoveBackups(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+`)
+
+	backupRoot := filepath.Join(sb.Home, ".config", "skillshare", "backups")
+	timestampDir := filepath.Join(backupRoot, "2024-01-01_00-00-00")
+	backupPath := filepath.Join(timestampDir, "claude", "old-skill")
+	os.MkdirAll(backupPath, 0755)
+	os.WriteFile(filepath.Join(backupPath, "SKILL.md"), []byte("# Old"), 0644)
+
+	oldTime := time.Now().Add(-60 * 24 * time.Hour)
+	os.Chtimes(timestampDir, oldTime, oldTime)
+
+	result := sb.RunCLI("backup", "--cleanup", "--dry-run")
+
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "Dry run")
+
+	if !sb.FileExists(timestampDir) {
+		t.Error("dry-run should not remove backups")
+	}
 }

@@ -11,11 +11,8 @@ type RestoreOptions struct {
 	Force bool // Overwrite existing files
 }
 
-// RestoreToPath restores a backup to a specific path.
-// backupPath is the full path to the backup (e.g., ~/.config/skillshare/backups/2024-01-15_14-30-45)
-// targetName is the name of the target to restore (e.g., "claude")
-// destPath is where to restore to (e.g., ~/.claude/skills)
-func RestoreToPath(backupPath, targetName, destPath string, opts RestoreOptions) error {
+// ValidateRestore checks if a restore would succeed without modifying the destination.
+func ValidateRestore(backupPath, targetName, destPath string, opts RestoreOptions) error {
 	targetBackupPath := filepath.Join(backupPath, targetName)
 
 	// Verify backup source exists
@@ -30,18 +27,47 @@ func RestoreToPath(backupPath, targetName, destPath string, opts RestoreOptions)
 	info, err := os.Stat(destPath)
 	if err == nil {
 		if info.Mode()&os.ModeSymlink != 0 {
-			// It's a symlink - remove it
-			if err := os.Remove(destPath); err != nil {
-				return fmt.Errorf("failed to remove existing symlink: %w", err)
-			}
-		} else if info.IsDir() {
+			return nil
+		}
+		if info.IsDir() {
 			if !opts.Force {
-				// Check if directory is non-empty
 				entries, _ := os.ReadDir(destPath)
 				if len(entries) > 0 {
 					return fmt.Errorf("destination is not empty: %s (use --force to overwrite)", destPath)
 				}
 			}
+			return nil
+		}
+		return fmt.Errorf("destination exists and is not a directory: %s", destPath)
+	}
+
+	if !os.IsNotExist(err) {
+		return fmt.Errorf("cannot access destination: %w", err)
+	}
+
+	return nil
+}
+
+// RestoreToPath restores a backup to a specific path.
+// backupPath is the full path to the backup (e.g., ~/.config/skillshare/backups/2024-01-15_14-30-45)
+// targetName is the name of the target to restore (e.g., "claude")
+// destPath is where to restore to (e.g., ~/.claude/skills)
+func RestoreToPath(backupPath, targetName, destPath string, opts RestoreOptions) error {
+	if err := ValidateRestore(backupPath, targetName, destPath, opts); err != nil {
+		return err
+	}
+
+	targetBackupPath := filepath.Join(backupPath, targetName)
+
+	// Check if destination exists
+	info, err := os.Stat(destPath)
+	if err == nil {
+		if info.Mode()&os.ModeSymlink != 0 {
+			// It's a symlink - remove it
+			if err := os.Remove(destPath); err != nil {
+				return fmt.Errorf("failed to remove existing symlink: %w", err)
+			}
+		} else if info.IsDir() {
 			// Remove existing directory for clean restore
 			if err := os.RemoveAll(destPath); err != nil {
 				return fmt.Errorf("failed to remove existing directory: %w", err)

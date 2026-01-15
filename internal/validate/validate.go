@@ -13,6 +13,10 @@ var validTargetNameRegex = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_-]*$`)
 // Reserved names that cannot be used as target names
 var reservedNames = []string{"add", "remove", "rm", "list", "ls", "help", "all"}
 
+// validSkillNameRegex allows letters, numbers, underscores, and hyphens
+// More permissive than target names - can start with number
+var validSkillNameRegex = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_-]*$`)
+
 // TargetName validates a target name.
 // Rules:
 //   - Must start with a letter
@@ -36,6 +40,27 @@ func TargetName(name string) error {
 		if strings.EqualFold(name, r) {
 			return fmt.Errorf("'%s' is a reserved name", name)
 		}
+	}
+
+	return nil
+}
+
+// SkillName validates a skill name.
+// Rules:
+//   - Must start with a letter or number
+//   - Can contain letters, numbers, underscores, and hyphens
+//   - Length 1-64 characters
+func SkillName(name string) error {
+	if name == "" {
+		return fmt.Errorf("skill name cannot be empty")
+	}
+
+	if len(name) > 64 {
+		return fmt.Errorf("skill name too long (max 64 characters)")
+	}
+
+	if !validSkillNameRegex.MatchString(name) {
+		return fmt.Errorf("skill name must start with a letter or number and contain only letters, numbers, underscores, and hyphens")
 	}
 
 	return nil

@@ -154,3 +154,35 @@ targets:
 		t.Error("target should no longer be a symlink after restore")
 	}
 }
+
+func TestRestore_DryRun_DoesNotRestore(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	targetPath := sb.CreateTarget("claude")
+
+	backupDir := filepath.Join(sb.Home, ".config", "skillshare", "backups")
+	timestamp := time.Now().Format("20060102-150405")
+	backupPath := filepath.Join(backupDir, timestamp, "claude")
+	os.MkdirAll(backupPath, 0755)
+
+	skillPath := filepath.Join(backupPath, "dry-run-skill")
+	os.MkdirAll(skillPath, 0755)
+	os.WriteFile(filepath.Join(skillPath, "SKILL.md"), []byte("# Dry Run"), 0644)
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + targetPath + `
+`)
+
+	result := sb.RunCLI("restore", "claude", "--dry-run")
+
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "Dry run")
+
+	restoredSkillPath := filepath.Join(targetPath, "dry-run-skill", "SKILL.md")
+	if sb.FileExists(restoredSkillPath) {
+		t.Error("dry-run should not restore files")
+	}
+}

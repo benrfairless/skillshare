@@ -102,11 +102,15 @@ func targetAdd(args []string) error {
 func targetRemove(args []string) error {
 	// Check for --all flag
 	removeAll := false
+	dryRun := false
 	var name string
 	for _, arg := range args {
-		if arg == "--all" || arg == "-a" {
+		switch arg {
+		case "--all", "-a":
 			removeAll = true
-		} else {
+		case "--dry-run", "-n":
+			dryRun = true
+		default:
 			name = arg
 		}
 	}
@@ -130,6 +134,10 @@ func targetRemove(args []string) error {
 			return fmt.Errorf("target '%s' not found", name)
 		}
 		toRemove = []string{name}
+	}
+
+	if dryRun {
+		return targetRemoveDryRun(cfg, toRemove)
 	}
 
 	// Backup before removing
@@ -178,6 +186,39 @@ func targetRemove(args []string) error {
 
 	if err := cfg.Save(); err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func targetRemoveDryRun(cfg *config.Config, toRemove []string) error {
+	ui.Warning("Dry run mode - no changes will be made")
+
+	ui.Header("Backing up before unlink")
+	for _, targetName := range toRemove {
+		ui.Info("%s: would attempt backup", targetName)
+	}
+
+	ui.Header("Unlinking targets")
+	for _, targetName := range toRemove {
+		target := cfg.Targets[targetName]
+		info, err := os.Lstat(target.Path)
+		if err != nil {
+			if os.IsNotExist(err) {
+				ui.Info("%s: would remove from config (path missing)", targetName)
+				continue
+			}
+			ui.Warning("%s: %v", targetName, err)
+			continue
+		}
+
+		if info.Mode()&os.ModeSymlink != 0 {
+			ui.Info("%s: would unlink symlink and restore contents", targetName)
+		} else if info.IsDir() {
+			ui.Info("%s: would remove skill symlinks", targetName)
+		}
+
+		ui.Info("%s: would remove from config", targetName)
 	}
 
 	return nil

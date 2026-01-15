@@ -90,6 +90,36 @@ targets:
 	}
 }
 
+func TestTargetRemove_DryRun_DoesNotRemove(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	targetPath := sb.CreateTarget("claude")
+	localSkillPath := filepath.Join(targetPath, "local-skill")
+	os.MkdirAll(localSkillPath, 0755)
+	os.WriteFile(filepath.Join(localSkillPath, "SKILL.md"), []byte("# Local"), 0644)
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + targetPath + `
+`)
+
+	result := sb.RunCLI("target", "remove", "claude", "--dry-run")
+
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "Dry run")
+
+	configContent := sb.ReadFile(sb.ConfigPath)
+	if !strings.Contains(configContent, "claude") {
+		t.Error("dry-run should not remove target from config")
+	}
+
+	if !sb.FileExists(filepath.Join(localSkillPath, "SKILL.md")) {
+		t.Error("dry-run should not unlink target contents")
+	}
+}
+
 func TestTargetRemove_All_RemovesAllTargets(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()

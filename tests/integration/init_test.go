@@ -54,6 +54,32 @@ func TestInit_WithSourceFlag_UsesCustomPath(t *testing.T) {
 	}
 }
 
+func TestInit_DryRun_DoesNotWrite(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	os.Remove(sb.ConfigPath)
+	os.RemoveAll(sb.SourcePath)
+
+	result := sb.RunCLIWithInput("n\nn\n", "init", "--dry-run")
+
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "Dry run")
+
+	if sb.FileExists(sb.ConfigPath) {
+		t.Error("dry-run should not create config")
+	}
+
+	if sb.FileExists(sb.SourcePath) {
+		t.Error("dry-run should not create source directory")
+	}
+
+	defaultSkillPath := filepath.Join(sb.SourcePath, "skillshare", "SKILL.md")
+	if sb.FileExists(defaultSkillPath) {
+		t.Error("dry-run should not create default skill")
+	}
+}
+
 func TestInit_AlreadyInitialized_ReturnsError(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
