@@ -27,12 +27,14 @@ type Config struct {
 func DefaultTargets() map[string]TargetConfig {
 	home, _ := os.UserHomeDir()
 	return map[string]TargetConfig{
+		"agents":      {Path: filepath.Join(home, ".config", "agents", "skills")}, // Global, portable across AI coding agents
+		"antigravity": {Path: filepath.Join(home, ".gemini", "antigravity", "skills")},
 		"claude":      {Path: filepath.Join(home, ".claude", "skills")},
 		"codex":       {Path: filepath.Join(home, ".codex", "skills")},
 		"copilot":     {Path: filepath.Join(home, ".copilot", "skills")},
 		"crush":       {Path: filepath.Join(home, ".config", "crush", "skills")},
 		"cursor":      {Path: filepath.Join(home, ".cursor", "skills")},
-		"antigravity": {Path: filepath.Join(home, ".gemini", "antigravity", "skills")},
+		"goose":       {Path: filepath.Join(home, ".config", "goose", "skills")},
 		"opencode":    {Path: filepath.Join(home, ".config", "opencode", "skill")},
 	}
 }
