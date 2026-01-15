@@ -46,13 +46,14 @@ skillshare sync    # Syncs skills to all targets
 
 Done! Your skills are now synced across all AI CLI tools.
 
-## Built-in Skill
+## ✨ Built-in Skill
 
-After syncing, your AI CLI tools can manage skills directly:
-
-> "Pull my latest skill from Claude and sync to all targets"
-
-The `skillshare` skill is included and ready to use.
+> [!TIP]
+> **Your AI can manage skills for you!** After syncing, just tell your AI:
+>
+> *"I just created a new skill in Claude Code. Pull it to source and sync to all targets."*
+>
+> No manual copying needed — the `skillshare` skill handles everything.
 
 ## How It Works
 
@@ -149,14 +150,12 @@ skillshare target claude --mode merge
 skillshare sync
 ```
 
-### ⚠️ Symlink Safety
-
-Deleting through a symlinked target **deletes the source**:
-
-```bash
-rm -rf ~/.codex/skills/my-skill  # ❌ Deletes from SOURCE!
-skillshare target remove codex   # ✅ Safe way to unlink
-```
+> [!WARNING]
+> **Symlink Safety** — Deleting through a symlinked target **deletes the source**:
+> ```bash
+> rm -rf ~/.codex/skills/my-skill  # ❌ Deletes from SOURCE!
+> skillshare target remove codex   # ✅ Safe way to unlink
+> ```
 
 ## Backup & Restore
 
