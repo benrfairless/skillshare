@@ -314,7 +314,10 @@ skillshare install github.com/google-gemini/gemini-cli/packages/core/src/skills/
 # Force overwrite existing
 skillshare install ~/my-skill --force
 
-# Update existing git-based installation
+# Update existing skill by name (uses stored source metadata)
+skillshare install my-skill --update
+
+# Update from source URL directly
 skillshare install github.com/user/skill-repo --update
 ```
 
