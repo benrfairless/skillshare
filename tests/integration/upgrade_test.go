@@ -15,7 +15,8 @@ func TestUpgrade_NoConfig_ReturnsError(t *testing.T) {
 	// Remove config
 	os.Remove(sb.ConfigPath)
 
-	result := sb.RunCLI("upgrade")
+	// Test skill upgrade only (CLI upgrade doesn't need config)
+	result := sb.RunCLI("upgrade", "--skill")
 
 	result.AssertFailure(t)
 	result.AssertAnyOutputContains(t, "config not found")
@@ -36,7 +37,8 @@ targets: {}
 	os.MkdirAll(filepath.Dir(skillPath), 0755)
 	os.WriteFile(skillPath, []byte("# Old Content"), 0644)
 
-	result := sb.RunCLI("upgrade", "--dry-run")
+	// Test skill upgrade only (CLI upgrade hits GitHub API rate limits in CI)
+	result := sb.RunCLI("upgrade", "--skill", "--dry-run")
 
 	result.AssertSuccess(t)
 	result.AssertOutputContains(t, "Would upgrade")
