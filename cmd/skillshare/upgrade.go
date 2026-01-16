@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"skillshare/internal/config"
+	"skillshare/internal/install"
 	"skillshare/internal/ui"
 )
 
@@ -160,11 +161,11 @@ func upgradeSkillshareSkill(dryRun, force bool) error {
 
 	if dryRun {
 		if exists {
-			ui.Info("Would upgrade: %s", skillshareSkillFile)
+			ui.Info("Would upgrade: %s", skillshareSkillDir)
 		} else {
-			ui.Info("Would download: %s", skillshareSkillFile)
+			ui.Info("Would download: %s", skillshareSkillDir)
 		}
-		ui.Info("Source: %s", skillshareSkillURL)
+		ui.Info("Source: %s", skillshareSkillSource)
 		return nil
 	}
 
@@ -179,19 +180,24 @@ func upgradeSkillshareSkill(dryRun, force bool) error {
 		}
 	}
 
-	// Create directory if needed
-	if err := os.MkdirAll(skillshareSkillDir, 0755); err != nil {
-		return fmt.Errorf("failed to create directory: %w", err)
-	}
-
-	// Download
+	// Install using install package (downloads entire directory including references/)
 	ui.Info("Downloading from GitHub...")
-	if err := downloadSkillshareSkill(skillshareSkillFile); err != nil {
+	source, err := install.ParseSource(skillshareSkillSource)
+	if err != nil {
+		return fmt.Errorf("failed to parse source: %w", err)
+	}
+	source.Name = "skillshare"
+
+	_, err = install.Install(source, skillshareSkillDir, install.InstallOptions{
+		Force:  true,
+		DryRun: false,
+	})
+	if err != nil {
 		return fmt.Errorf("failed to download: %w", err)
 	}
 
 	ui.Success("Upgraded skillshare skill")
-	ui.Info("Path: %s", skillshareSkillFile)
+	ui.Info("Path: %s", skillshareSkillDir)
 	ui.Info("")
 	ui.Info("Run 'skillshare sync' to distribute to all targets")
 

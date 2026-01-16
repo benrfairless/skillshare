@@ -115,6 +115,6 @@ targets: {}
 	result := sb.RunCLI("upgrade", "--skill", "--dry-run")
 
 	result.AssertSuccess(t)
-	// URL is raw.githubusercontent.com
-	result.AssertOutputContains(t, "githubusercontent")
+	// Source is github.com/runkids/skillshare/skills/skillshare
+	result.AssertOutputContains(t, "github.com/runkids/skillshare")
 }

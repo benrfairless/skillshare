@@ -2,18 +2,18 @@ package main
 
 import (
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 
 	"skillshare/internal/config"
+	"skillshare/internal/install"
 	"skillshare/internal/ui"
 	"skillshare/internal/utils"
 )
 
+const skillshareSkillSource = "github.com/runkids/skillshare/skills/skillshare"
 const skillshareSkillURL = "https://raw.githubusercontent.com/runkids/skillshare/main/skills/skillshare/SKILL.md"
 
 func cmdInit(args []string) error {
@@ -689,39 +689,29 @@ func createDefaultSkill(sourcePath string, dryRun bool) {
 		return
 	}
 
-	if err := os.MkdirAll(skillshareSkillDir, 0755); err != nil {
-		return
+	// Try to install from GitHub using install package
+	source, err := install.ParseSource(skillshareSkillSource)
+	if err == nil {
+		source.Name = "skillshare"
+		_, err = install.Install(source, skillshareSkillDir, install.InstallOptions{
+			Force:  true,
+			DryRun: false,
+		})
 	}
 
-	// Try to download from GitHub
-	if err := downloadSkillshareSkill(skillshareSkillFile); err != nil {
+	if err != nil {
 		// Fallback to minimal version
+		if err := os.MkdirAll(skillshareSkillDir, 0755); err != nil {
+			ui.Warning("Failed to create skillshare skill directory: %v", err)
+			return
+		}
 		if err := os.WriteFile(skillshareSkillFile, []byte(fallbackSkillContent), 0644); err != nil {
 			ui.Warning("Failed to create skillshare skill: %v", err)
 			return
 		}
 		ui.Success("Created default skill: skillshare")
-		ui.Info("Run 'skillshare update' to get the full version")
+		ui.Info("Run 'skillshare upgrade --skill' to get the full version")
 		return
 	}
 	ui.Success("Downloaded default skill: skillshare")
-}
-
-func downloadSkillshareSkill(destPath string) error {
-	resp, err := http.Get(skillshareSkillURL)
-	if err != nil {
-		return fmt.Errorf("failed to fetch: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("HTTP %d", resp.StatusCode)
-	}
-
-	content, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("failed to read response: %w", err)
-	}
-
-	return os.WriteFile(destPath, content, 0644)
 }
