@@ -17,3 +17,6 @@ Thumbs.db
 coverage.out
 .claude/
 AGENTS.md
+
+# Worktrees
+.worktrees/

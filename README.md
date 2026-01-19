@@ -8,7 +8,6 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
   <a href="go.mod"><img src="https://img.shields.io/github/go-mod/go-version/runkids/skillshare" alt="Go Version"></a>
   <a href="https://github.com/runkids/skillshare/releases"><img src="https://img.shields.io/github/v/release/runkids/skillshare" alt="Release"></a>
-  <a href="https://github.com/runkids/skillshare/releases"><img src="https://img.shields.io/github/downloads/runkids/skillshare/total" alt="Downloads"></a>
 </p>
 
 <p align="center">
@@ -90,36 +89,6 @@ Installs to `/usr/local/bin/`. Works on macOS and Linux.
 ```bash
 brew install runkids/tap/skillshare
 ```
-
-### Manual install
-
-#### macOS
-
-```bash
-# Apple Silicon (M1/M2/M3/M4)
-curl -sL https://github.com/runkids/skillshare/releases/latest/download/skillshare_darwin_arm64.tar.gz | tar xz
-sudo mv skillshare /usr/local/bin/
-
-# Intel
-curl -sL https://github.com/runkids/skillshare/releases/latest/download/skillshare_darwin_amd64.tar.gz | tar xz
-sudo mv skillshare /usr/local/bin/
-```
-
-#### Linux
-
-```bash
-# x86_64
-curl -sL https://github.com/runkids/skillshare/releases/latest/download/skillshare_linux_amd64.tar.gz | tar xz
-sudo mv skillshare /usr/local/bin/
-
-# ARM64
-curl -sL https://github.com/runkids/skillshare/releases/latest/download/skillshare_linux_arm64.tar.gz | tar xz
-sudo mv skillshare /usr/local/bin/
-```
-
-#### Windows
-
-Download from [Releases](https://github.com/runkids/skillshare/releases) and add to PATH.
 
 ### Uninstall
 
