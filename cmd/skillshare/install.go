@@ -54,6 +54,8 @@ func cmdInstall(args []string) error {
 			opts.Update = true
 		case arg == "--dry-run" || arg == "-n":
 			opts.DryRun = true
+		case arg == "--track" || arg == "-t":
+			opts.Track = true
 		case arg == "--help" || arg == "-h":
 			printInstallHelp()
 			return nil
@@ -98,6 +100,11 @@ func cmdInstall(args []string) error {
 		return handleDirectInstall(source, cfg, opts)
 	}
 
+	// Handle --track mode: install entire repo as tracked repository
+	if opts.Track {
+		return handleTrackedRepoInstall(source, cfg, opts)
+	}
+
 	// If git source without subdir, discover skills and let user choose
 	if source.IsGit() && !source.HasSubdir() {
 		return handleGitDiscovery(source, cfg, opts)
@@ -105,6 +112,49 @@ func cmdInstall(args []string) error {
 
 	// Direct installation (local path or git with subdir)
 	return handleDirectInstall(source, cfg, opts)
+}
+
+func handleTrackedRepoInstall(source *install.Source, cfg *config.Config, opts install.InstallOptions) error {
+	ui.Header("Installing tracked repository")
+	fmt.Println(strings.Repeat("-", 45))
+	ui.Info("Source: %s", source.Raw)
+	if opts.Name != "" {
+		ui.Info("Name override: _%s", opts.Name)
+	}
+	fmt.Println()
+
+	result, err := install.InstallTrackedRepo(source, cfg.Source, opts)
+	if err != nil {
+		return err
+	}
+
+	// Display result
+	if opts.DryRun {
+		ui.Warning("[dry-run] %s", result.Action)
+	} else {
+		ui.Success("Installed tracked repo: %s", result.RepoName)
+		ui.Info("Path: %s", result.RepoPath)
+		ui.Info("Skills found: %d", result.SkillCount)
+		if len(result.Skills) > 0 && len(result.Skills) <= 10 {
+			for _, skill := range result.Skills {
+				ui.Info("  - %s", skill)
+			}
+		}
+	}
+
+	// Display warnings
+	for _, warning := range result.Warnings {
+		ui.Warning("%s", warning)
+	}
+
+	// Show next steps
+	if !opts.DryRun {
+		fmt.Println()
+		ui.Info("Run 'skillshare sync' to distribute skills to all targets")
+		ui.Info("Run 'skillshare update %s' to update this repo later", result.RepoName)
+	}
+
+	return nil
 }
 
 func handleGitDiscovery(source *install.Source, cfg *config.Config, opts install.InstallOptions) error {
@@ -284,6 +334,7 @@ Options:
   --name <name>       Override the skill name (only for direct install)
   --force, -f         Overwrite if skill already exists
   --update, -u        Update existing (git pull if possible, else reinstall)
+  --track, -t         Install as tracked repo (preserves .git for updates)
   --dry-run, -n       Preview the installation without making changes
   --help, -h          Show this help
 
@@ -293,6 +344,10 @@ Examples:
   skillshare install ComposioHQ/awesome-claude-skills
   skillshare install ~/my-skill
   skillshare install github.com/user/repo --force
+
+Tracked repositories (Team Edition):
+  skillshare install team/shared-skills --track   # Clone as _shared-skills
+  skillshare install _shared-skills --update      # Update tracked repo
 
 Update existing skills:
   skillshare install my-skill --update       # Update using stored source

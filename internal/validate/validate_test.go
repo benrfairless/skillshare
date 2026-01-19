@@ -153,3 +153,75 @@ func TestTargetPath(t *testing.T) {
 		})
 	}
 }
+
+func TestFlatSkillName(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		wantErr bool
+	}{
+		// Valid flat skill names
+		{"simple name", "my-skill", false},
+		{"with numbers", "skill123", false},
+		{"with underscore", "my_skill", false},
+		{"nested separator", "team__ui", false},
+		{"deep nesting", "a__b__c__d", false},
+		{"tracked repo skill", "_team__frontend__ui", false},
+		{"tracked simple", "_team-repo", false},
+
+		// Invalid flat skill names
+		{"empty", "", true},
+		{"only _", "_", true},
+		{"_ with space", "_ team", true},
+		{"space in name", "my skill", true},
+		{"dot in name", "my.skill", true},
+		{"slash in name", "my/skill", true},
+		{"too long", strings.Repeat("a", 129), true},
+		{"starts with hyphen", "-skill", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := FlatSkillName(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("FlatSkillName(%q) error = %v, wantErr %v", tt.input, err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestTrackedRepoName(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		wantErr bool
+	}{
+		// Valid tracked repo names
+		{"simple", "_team", false},
+		{"with hyphen", "_team-repo", false},
+		{"with underscore", "_team_repo", false},
+		{"with numbers", "_team123", false},
+		{"company style", "_company-skills", false},
+
+		// Invalid tracked repo names
+		{"empty", "", true},
+		{"only _", "_", true},
+		{"no _ prefix", "team-repo", true},
+		{"_ with space", "_ team", true},
+		{"space in name", "_my team", true},
+		{"dot in name", "_my.team", true},
+		{"slash in name", "_my/team", true},
+		{"too short", "_", true},
+		{"too long", "_" + strings.Repeat("a", 64), true},
+		{"starts with hyphen after _", "_-team", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := TrackedRepoName(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("TrackedRepoName(%q) error = %v, wantErr %v", tt.input, err, tt.wantErr)
+			}
+		})
+	}
+}

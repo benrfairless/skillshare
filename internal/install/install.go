@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 )
 
 // InstallOptions configures the install behavior
@@ -14,6 +15,7 @@ type InstallOptions struct {
 	Force  bool   // Overwrite existing
 	DryRun bool   // Preview only
 	Update bool   // Update existing installation
+	Track  bool   // Install as tracked repository (preserves .git)
 }
 
 // InstallResult reports the outcome of an installation
@@ -388,11 +390,16 @@ func isGitInstalled() bool {
 	return err == nil
 }
 
-// isGitRepo checks if path is a git repository
-func isGitRepo(path string) bool {
+// IsGitRepo checks if path is a git repository
+func IsGitRepo(path string) bool {
 	gitDir := filepath.Join(path, ".git")
 	info, err := os.Stat(gitDir)
 	return err == nil && info.IsDir()
+}
+
+// isGitRepo is an alias for IsGitRepo (for internal use)
+func isGitRepo(path string) bool {
+	return IsGitRepo(path)
 }
 
 // cloneRepo performs a git clone
@@ -473,4 +480,146 @@ func copyFile(src, dst string) error {
 
 	_, err = io.Copy(dstFile, srcFile)
 	return err
+}
+
+// TrackedRepoResult reports the outcome of a tracked repo installation
+type TrackedRepoResult struct {
+	RepoName   string   // Name of the tracked repo (e.g., "_team-skills")
+	RepoPath   string   // Full path to the repo
+	SkillCount int      // Number of skills discovered
+	Skills     []string // Names of discovered skills
+	Action     string   // "cloned", "updated", "skipped"
+	Warnings   []string
+}
+
+// InstallTrackedRepo clones a git repository as a tracked repo.
+// The repo is cloned to @<repo-name>/ and preserves .git for updates.
+func InstallTrackedRepo(source *Source, sourceDir string, opts InstallOptions) (*TrackedRepoResult, error) {
+	if !source.IsGit() {
+		return nil, fmt.Errorf("--track requires a git repository source")
+	}
+
+	// Determine repo name: opts.Name > source.Name > URL basename
+	repoName := opts.Name
+	if repoName == "" {
+		repoName = source.Name
+	}
+	if repoName == "" {
+		repoName = filepath.Base(source.CloneURL)
+		// Remove .git suffix if present
+		if filepath.Ext(repoName) == ".git" {
+			repoName = repoName[:len(repoName)-4]
+		}
+	}
+
+	// Prefix with _ to indicate tracked repo (avoid double prefix if user already added _)
+	trackedName := repoName
+	if !strings.HasPrefix(repoName, "_") {
+		trackedName = "_" + repoName
+	}
+	destPath := filepath.Join(sourceDir, trackedName)
+
+	result := &TrackedRepoResult{
+		RepoName: trackedName,
+		RepoPath: destPath,
+	}
+
+	// Check if already exists
+	if _, err := os.Stat(destPath); err == nil {
+		if opts.Update {
+			return updateTrackedRepo(destPath, result, opts)
+		}
+		if !opts.Force {
+			return nil, fmt.Errorf("tracked repo '%s' already exists. Use --force to overwrite or --update to update", trackedName)
+		}
+		// Force mode - remove existing
+		if !opts.DryRun {
+			if err := os.RemoveAll(destPath); err != nil {
+				return nil, fmt.Errorf("failed to remove existing repo: %w", err)
+			}
+		}
+	}
+
+	if opts.DryRun {
+		result.Action = "would clone"
+		return result, nil
+	}
+
+	// Clone the repository (full clone, not shallow, to support updates)
+	if err := cloneRepoFull(source.CloneURL, destPath); err != nil {
+		return nil, fmt.Errorf("failed to clone repository: %w", err)
+	}
+
+	// Discover skills in the cloned repo
+	skills := discoverSkills(destPath)
+	result.SkillCount = len(skills)
+	for _, skill := range skills {
+		result.Skills = append(result.Skills, skill.Name)
+	}
+
+	if len(skills) == 0 {
+		result.Warnings = append(result.Warnings, "no SKILL.md files found in repository")
+	}
+
+	// Auto-add to .gitignore to prevent committing tracked repo contents
+	if err := UpdateGitIgnore(sourceDir, trackedName); err != nil {
+		result.Warnings = append(result.Warnings, fmt.Sprintf("failed to update .gitignore: %v", err))
+	}
+
+	result.Action = "cloned"
+	return result, nil
+}
+
+// updateTrackedRepo performs git pull on an existing tracked repo
+func updateTrackedRepo(repoPath string, result *TrackedRepoResult, opts InstallOptions) (*TrackedRepoResult, error) {
+	if !isGitRepo(repoPath) {
+		return nil, fmt.Errorf("'%s' is not a git repository", repoPath)
+	}
+
+	if opts.DryRun {
+		result.Action = "would update (git pull)"
+		return result, nil
+	}
+
+	if err := gitPull(repoPath); err != nil {
+		return nil, fmt.Errorf("failed to update: %w", err)
+	}
+
+	// Re-discover skills
+	skills := discoverSkills(repoPath)
+	result.SkillCount = len(skills)
+	for _, skill := range skills {
+		result.Skills = append(result.Skills, skill.Name)
+	}
+
+	result.Action = "updated"
+	return result, nil
+}
+
+// cloneRepoFull performs a full git clone (not shallow)
+func cloneRepoFull(url, destPath string) error {
+	cmd := exec.Command("git", "clone", url, destPath)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
+// GetTrackedRepos returns a list of tracked repositories in the source directory
+func GetTrackedRepos(sourceDir string) ([]string, error) {
+	entries, err := os.ReadDir(sourceDir)
+	if err != nil {
+		return nil, err
+	}
+
+	var repos []string
+	for _, entry := range entries {
+		if entry.IsDir() && len(entry.Name()) > 0 && entry.Name()[0] == '@' {
+			// Verify it's actually a git repo
+			gitDir := filepath.Join(sourceDir, entry.Name(), ".git")
+			if _, err := os.Stat(gitDir); err == nil {
+				repos = append(repos, entry.Name())
+			}
+		}
+	}
+	return repos, nil
 }

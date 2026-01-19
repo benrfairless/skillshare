@@ -38,6 +38,24 @@ func cmdSync(args []string) error {
 		backupTargetsBeforeSync(cfg)
 	}
 
+	// Check for name collisions before syncing
+	discoveredSkills, discoverErr := sync.DiscoverSourceSkills(cfg.Source)
+	if discoverErr == nil {
+		collisions := sync.CheckNameCollisions(discoveredSkills)
+		if len(collisions) > 0 {
+			ui.Header("Name conflicts detected")
+			for _, collision := range collisions {
+				ui.Warning("Skill name '%s' is defined in multiple places:", collision.Name)
+				for _, path := range collision.Paths {
+					ui.Info("  - %s", path)
+				}
+			}
+			ui.Info("CLI tools may not distinguish between them.")
+			ui.Info("Suggestion: Rename one in SKILL.md (e.g., 'repo:skillname')")
+			fmt.Println()
+		}
+	}
+
 	ui.Header("Syncing skills")
 	if dryRun {
 		ui.Warning("Dry run mode - no changes will be made")
@@ -97,13 +115,35 @@ func syncMergeMode(name string, target config.TargetConfig, source string, dryRu
 		return err
 	}
 
-	if len(result.Linked) > 0 || len(result.Updated) > 0 {
-		ui.Success("%s: merged (%d linked, %d local, %d updated)",
-			name, len(result.Linked), len(result.Skipped), len(result.Updated))
-	} else if len(result.Skipped) > 0 {
-		ui.Success("%s: merged (%d local skills preserved)", name, len(result.Skipped))
+	// Prune orphan links (skills that no longer exist in source)
+	pruneResult, pruneErr := sync.PruneOrphanLinks(target.Path, source, dryRun)
+	if pruneErr != nil {
+		ui.Warning("%s: prune failed: %v", name, pruneErr)
+	}
+
+	// Report results
+	linkedCount := len(result.Linked)
+	updatedCount := len(result.Updated)
+	skippedCount := len(result.Skipped)
+	removedCount := 0
+	if pruneResult != nil {
+		removedCount = len(pruneResult.Removed)
+	}
+
+	if linkedCount > 0 || updatedCount > 0 || removedCount > 0 {
+		ui.Success("%s: merged (%d linked, %d local, %d updated, %d pruned)",
+			name, linkedCount, skippedCount, updatedCount, removedCount)
+	} else if skippedCount > 0 {
+		ui.Success("%s: merged (%d local skills preserved)", name, skippedCount)
 	} else {
 		ui.Success("%s: merged (no skills)", name)
+	}
+
+	// Show prune warnings
+	if pruneResult != nil {
+		for _, warn := range pruneResult.Warnings {
+			ui.Warning("  %s", warn)
+		}
 	}
 
 	return nil

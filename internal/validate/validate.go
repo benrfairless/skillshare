@@ -17,6 +17,15 @@ var reservedNames = []string{"add", "remove", "rm", "list", "ls", "help", "all"}
 // More permissive than target names - can start with number
 var validSkillNameRegex = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_-]*$`)
 
+// validFlatSkillNameRegex allows flat skill names with nested separators (__)
+// Also allows _ prefix for tracked repository skills
+// Examples: "my-skill", "_team__frontend__ui", "personal__email"
+var validFlatSkillNameRegex = regexp.MustCompile(`^_?[a-zA-Z0-9][a-zA-Z0-9_-]*$`)
+
+// validTrackedRepoNameRegex validates tracked repository names (start with _)
+// Examples: "_team-repo", "_company-skills"
+var validTrackedRepoNameRegex = regexp.MustCompile(`^_[a-zA-Z0-9][a-zA-Z0-9_-]*$`)
+
 // TargetName validates a target name.
 // Rules:
 //   - Must start with a letter
@@ -144,4 +153,56 @@ func IsLikelySkillsPath(path string) bool {
 	}
 
 	return false
+}
+
+// FlatSkillName validates a flat skill name (used in target directories).
+// Rules:
+//   - Can optionally start with _ (for tracked repo skills)
+//   - After optional _, must start with a letter or number
+//   - Can contain letters, numbers, underscores (including __), and hyphens
+//   - Length 1-128 characters (longer to allow nested paths)
+//
+// Examples: "my-skill", "_team__frontend__ui", "personal__email"
+func FlatSkillName(name string) error {
+	if name == "" {
+		return fmt.Errorf("skill name cannot be empty")
+	}
+
+	if len(name) > 128 {
+		return fmt.Errorf("skill name too long (max 128 characters)")
+	}
+
+	if !validFlatSkillNameRegex.MatchString(name) {
+		return fmt.Errorf("skill name must start with a letter, number, or _ followed by alphanumeric, and contain only letters, numbers, underscores, and hyphens")
+	}
+
+	return nil
+}
+
+// TrackedRepoName validates a tracked repository name.
+// Rules:
+//   - Must start with _
+//   - After _, must start with a letter or number
+//   - Can contain letters, numbers, underscores, and hyphens
+//   - Length 2-64 characters (_ + at least 1 char)
+//
+// Examples: "_team-repo", "_company-skills"
+func TrackedRepoName(name string) error {
+	if name == "" {
+		return fmt.Errorf("tracked repo name cannot be empty")
+	}
+
+	if len(name) < 2 {
+		return fmt.Errorf("tracked repo name too short (need _ plus at least one character)")
+	}
+
+	if len(name) > 64 {
+		return fmt.Errorf("tracked repo name too long (max 64 characters)")
+	}
+
+	if !validTrackedRepoNameRegex.MatchString(name) {
+		return fmt.Errorf("tracked repo name must start with _ followed by a letter or number, and contain only letters, numbers, underscores, and hyphens")
+	}
+
+	return nil
 }

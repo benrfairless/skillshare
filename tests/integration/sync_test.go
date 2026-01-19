@@ -246,3 +246,179 @@ targets:
 		t.Errorf("symlink target = %q, want %q", got, sb.SourcePath)
 	}
 }
+
+func TestSync_NestedSkills_FlatNaming(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	// Create nested skill structure
+	// Source: personal/writing/email/SKILL.md -> Target: personal__writing__email
+	sb.CreateNestedSkill("personal/writing/email", map[string]string{
+		"SKILL.md": "# Email Writing Skill",
+	})
+
+	// Also create a regular flat skill for comparison
+	sb.CreateSkill("my-helper", map[string]string{
+		"SKILL.md": "# My Helper",
+	})
+
+	targetPath := sb.CreateTarget("claude")
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+mode: merge
+targets:
+  claude:
+    path: ` + targetPath + `
+`)
+
+	result := sb.RunCLI("sync")
+
+	result.AssertSuccess(t)
+
+	// Verify flat skill is symlinked normally
+	flatSkillLink := filepath.Join(targetPath, "my-helper")
+	if !sb.IsSymlink(flatSkillLink) {
+		t.Error("flat skill should be a symlink")
+	}
+
+	// Verify nested skill is symlinked with flat naming
+	nestedSkillLink := filepath.Join(targetPath, "personal__writing__email")
+	if !sb.IsSymlink(nestedSkillLink) {
+		t.Errorf("nested skill should be a symlink at %s", nestedSkillLink)
+	}
+
+	// Verify symlink points to correct nested source
+	expectedNestedTarget := filepath.Join(sb.SourcePath, "personal", "writing", "email")
+	if got := sb.SymlinkTarget(nestedSkillLink); got != expectedNestedTarget {
+		t.Errorf("nested symlink target = %q, want %q", got, expectedNestedTarget)
+	}
+}
+
+func TestSync_TrackedRepoSkills_FlatNaming(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	// Create a tracked repo structure with nested skills
+	// Source: _team-repo/frontend/ui/SKILL.md -> Target: _team-repo__frontend__ui
+	sb.CreateNestedSkill("_team-repo/frontend/ui", map[string]string{
+		"SKILL.md": "# UI Components",
+	})
+
+	// Another skill in the same tracked repo
+	sb.CreateNestedSkill("_team-repo/backend/api", map[string]string{
+		"SKILL.md": "# API Utilities",
+	})
+
+	targetPath := sb.CreateTarget("claude")
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+mode: merge
+targets:
+  claude:
+    path: ` + targetPath + `
+`)
+
+	result := sb.RunCLI("sync")
+
+	result.AssertSuccess(t)
+
+	// Verify tracked repo skills are symlinked with flat naming
+	uiSkillLink := filepath.Join(targetPath, "_team-repo__frontend__ui")
+	if !sb.IsSymlink(uiSkillLink) {
+		t.Errorf("tracked repo skill should be a symlink at %s", uiSkillLink)
+	}
+
+	apiSkillLink := filepath.Join(targetPath, "_team-repo__backend__api")
+	if !sb.IsSymlink(apiSkillLink) {
+		t.Errorf("tracked repo skill should be a symlink at %s", apiSkillLink)
+	}
+
+	// Verify symlinks point to correct nested sources
+	expectedUITarget := filepath.Join(sb.SourcePath, "_team-repo", "frontend", "ui")
+	if got := sb.SymlinkTarget(uiSkillLink); got != expectedUITarget {
+		t.Errorf("UI symlink target = %q, want %q", got, expectedUITarget)
+	}
+}
+
+func TestSync_Pruning_RemovesOrphanLinks(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	// Create initial skills
+	sb.CreateSkill("skill-a", map[string]string{"SKILL.md": "# Skill A"})
+	sb.CreateSkill("skill-b", map[string]string{"SKILL.md": "# Skill B"})
+	sb.CreateNestedSkill("nested/skill-c", map[string]string{"SKILL.md": "# Skill C"})
+
+	targetPath := sb.CreateTarget("claude")
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+mode: merge
+targets:
+  claude:
+    path: ` + targetPath + `
+`)
+
+	// First sync - creates all symlinks
+	result := sb.RunCLI("sync")
+	result.AssertSuccess(t)
+
+	// Verify all symlinks exist
+	if !sb.IsSymlink(filepath.Join(targetPath, "skill-a")) {
+		t.Error("skill-a should be a symlink")
+	}
+	if !sb.IsSymlink(filepath.Join(targetPath, "skill-b")) {
+		t.Error("skill-b should be a symlink")
+	}
+	if !sb.IsSymlink(filepath.Join(targetPath, "nested__skill-c")) {
+		t.Error("nested__skill-c should be a symlink")
+	}
+
+	// Remove skill-b from source
+	os.RemoveAll(filepath.Join(sb.SourcePath, "skill-b"))
+
+	// Second sync - should prune skill-b
+	result = sb.RunCLI("sync")
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "pruned")
+
+	// Verify skill-b is removed, others remain
+	if !sb.IsSymlink(filepath.Join(targetPath, "skill-a")) {
+		t.Error("skill-a should still be a symlink")
+	}
+	if sb.FileExists(filepath.Join(targetPath, "skill-b")) {
+		t.Error("skill-b should have been pruned")
+	}
+	if !sb.IsSymlink(filepath.Join(targetPath, "nested__skill-c")) {
+		t.Error("nested__skill-c should still be a symlink")
+	}
+}
+
+func TestSync_Pruning_PreservesLocalDirectories(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	// Create source skill
+	sb.CreateSkill("shared-skill", map[string]string{"SKILL.md": "# Shared"})
+
+	targetPath := sb.CreateTarget("claude")
+
+	// Create a local directory in target (not a symlink)
+	localSkillPath := filepath.Join(targetPath, "my-local-skill")
+	os.MkdirAll(localSkillPath, 0755)
+	os.WriteFile(filepath.Join(localSkillPath, "SKILL.md"), []byte("# Local"), 0644)
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+mode: merge
+targets:
+  claude:
+    path: ` + targetPath + `
+`)
+
+	result := sb.RunCLI("sync")
+	result.AssertSuccess(t)
+
+	// Local directory should be preserved (warning issued but not deleted)
+	if !sb.FileExists(localSkillPath) {
+		t.Error("local skill directory should be preserved")
+	}
+}

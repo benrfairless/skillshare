@@ -23,10 +23,19 @@
   <a href="#installation">Install</a> •
   <a href="#quick-start">Quick Start</a> •
   <a href="#commands">Commands</a> •
+  <a href="#team-edition">Team Edition</a> •
   <a href="#reference">Reference</a> •
   <a href="#faq">FAQ</a> •
   <a href="#common-issues">Common Issues</a>
 </p>
+
+> [!NOTE]
+> **What's New in 0.6.0 — Team Edition**
+> - **Tracked Repositories**: `install --track` to clone team skill repos, `update` to keep them current
+> - **Nested Skills**: Organize skills in folders (`work/api/` → `work__api/`)
+> - **Auto-Pruning**: Orphaned symlinks are automatically cleaned on sync
+> - **Collision Detection**: Warns when multiple skills share the same name
+> - [Learn more →](#team-edition)
 
 ## Why skillshare?
 
@@ -120,10 +129,12 @@ Done! Your skills are now synced across all AI CLI tools.
               │               │               │
               ▼               ▼               ▼
        ┌───────────┐   ┌───────────┐   ┌───────────┐
-       │  Claude   │   │   Codex   │   │  Gemini   │
+       │  Claude   │   │   Codex   │   │  OpenCode │
        │  skills/  │   │  skills/  │   │  skills/  │
        └───────────┘   └───────────┘   └───────────┘
 ```
+
+> Nested paths like `work/api/` are flattened to `work__api/` in targets. See [Nested Skills](#nested-skills-manual-organization).
 
 ## Commands
 
@@ -131,14 +142,16 @@ Done! Your skills are now synced across all AI CLI tools.
 |---------|-------------|
 | `init` | Initialize skillshare, detect CLIs, setup git |
 | `install` | Install a skill from local path or git repo |
-| `uninstall` | Remove a skill from source directory |
-| `list` | List all installed skills |
-| `sync` | Sync skills to all targets |
-| `status` | Show source, targets, and sync state |
+| `install --track` | Install a git repo as tracked repository (Team Edition) |
+| `uninstall` | Remove a skill or tracked repo from source |
+| `list` | List all installed skills and tracked repos |
+| `sync` | Sync skills to all targets (with auto-pruning) |
+| `status` | Show source, targets, tracked repos, and sync state |
 | `diff` | Show differences between source and targets |
 | `pull` | Pull skills from target back to source |
 | `pull --remote` | Pull from git remote and sync to all targets |
 | `push` | Commit and push skills to git remote |
+| `update` | Update a skill or tracked repository |
 | `backup` | Manually backup targets |
 | `restore` | Restore from backup |
 | `doctor` | Diagnose configuration issues |
@@ -156,6 +169,159 @@ Done! Your skills are now synced across all AI CLI tools.
 
 ---
 
+## Team Edition
+
+Share skills across your team with tracked repositories. Clone once, update with `git pull`, sync everywhere.
+
+### Why Team Edition?
+
+| Feature | Before | After |
+|---------|--------|-------|
+| Share skills | Manual copy | `install --track` + `sync` |
+| Update skills | Re-download | `update <name>` |
+| Nested organization | Not supported | `team/frontend/ui` → `team__frontend__ui` |
+| Clean up | Manual | Auto-pruning on sync |
+
+### Quick Start
+
+```bash
+# Install a team skills repo
+skillshare install github.com/team/shared-skills --track
+
+# Sync to all targets
+skillshare sync
+
+# Later, update the repo
+skillshare update _shared-skills
+skillshare sync
+```
+
+### How It Works
+
+```
+Source Directory                    Target Directory
+─────────────────────────────────────────────────────────────
+skills/
+├── my-local-skill/                 my-local-skill/
+├── personal/
+│   └── writing/
+│       └── email/                  personal__writing__email/
+└── _team-repo/          ─────►
+    ├── frontend/
+    │   └── ui/                     _team-repo__frontend__ui/
+    └── backend/
+        └── api/                    _team-repo__backend__api/
+```
+
+**Key concepts:**
+- **Tracked repos** start with `_` (e.g., `_team-repo`)
+- **Nested paths** use `__` separator (e.g., `a/b/c` → `a__b__c`)
+- **Auto-pruning** removes orphaned symlinks on sync
+
+### Commands
+
+```bash
+# Install as tracked repository (preserves .git)
+skillshare install github.com/team/skills --track
+skillshare install github.com/team/skills --track --name custom-name
+
+# Update tracked repos
+skillshare update _team-repo          # Update specific repo
+skillshare update --all               # Update all tracked repos
+
+# View tracked repos
+skillshare list                       # Shows skills + tracked repos
+skillshare status                     # Shows repo status (up-to-date/has changes)
+
+# Uninstall tracked repo
+skillshare uninstall _team-repo       # Checks for uncommitted changes
+skillshare uninstall _team-repo -f    # Force (ignore uncommitted changes)
+```
+
+### Nested Skills (Manual Organization)
+
+Organize skills in subdirectories for better categorization. Skillshare automatically flattens them during sync:
+
+```
+Source (your organization)          Target (flattened for CLI)
+─────────────────────────────────────────────────────────────
+skills/
+├── my-skill/                  →    my-skill/
+├── personal/
+│   └── writing/
+│       └── email/             →    personal__writing__email/
+└── work/
+    ├── frontend/
+    │   └── react/             →    work__frontend__react/
+    └── backend/
+        └── api/               →    work__backend__api/
+```
+
+**How it works:**
+- A directory with `SKILL.md` is treated as a skill
+- Nested paths use `__` (double underscore) as separator
+- Original folder structure is preserved in source
+- CLI tools see flat names (required by most AI CLIs)
+
+```bash
+# Create nested structure manually
+mkdir -p ~/.config/skillshare/skills/personal/writing/email
+cat > ~/.config/skillshare/skills/personal/writing/email/SKILL.md << 'EOF'
+---
+name: email-helper
+description: Help write professional emails
+---
+# Email Helper
+EOF
+
+# Sync - creates personal__writing__email/ symlink in all targets
+skillshare sync
+```
+
+> [!NOTE]
+> This works for both personal organization and tracked repos (`_repo/path` → `_repo__path`).
+
+### Name Collision Detection
+
+If multiple skills have the same `name` in their SKILL.md, `sync` will warn you:
+
+```
+Name conflicts detected
+─────────────────────────────────────────
+! Skill name 'deploy' is defined in multiple places:
+→   - work/frontend/deploy
+→   - work/backend/deploy
+→ CLI tools may not distinguish between them.
+→ Suggestion: Rename one in SKILL.md (e.g., 'frontend-deploy')
+```
+
+**Why this matters:** CLI tools identify skills by the `name` field in SKILL.md, not the directory name. Duplicate names cause unpredictable behavior.
+
+> [!TIP]
+> **Best Practice for Team Repos:** Use `{team}:{name}` format in SKILL.md to avoid collisions:
+> ```yaml
+> # In _acme-corp/frontend/ui/SKILL.md
+> name: acme:ui
+> ```
+> This ensures skills from different teams never conflict.
+
+### Auto-Pruning
+
+When you delete a skill from source, `sync` automatically removes it from targets:
+
+```bash
+rm -rf ~/.config/skillshare/skills/_team/old-skill
+skillshare sync
+# Output: ✓ target: merged (5 linked, 0 local, 0 updated, 1 pruned)
+```
+
+**Safety rules:**
+- Only removes symlinks pointing to source
+- Only removes directories with `_` prefix or `__` in name
+- Warns about unknown directories (never auto-deletes)
+
+---
+
 ## Reference
 
 Jump to a section:
@@ -164,6 +330,7 @@ Jump to a section:
 - [Install Skills](#install-skills)
 - [Uninstall Skills](#uninstall-skills)
 - [List Skills](#list-skills)
+- [Update Skills](#update-skills)
 - [Upgrade](#upgrade)
 - [Dry Run](#dry-run)
 - [Sync Modes](#sync-modes)
@@ -269,6 +436,7 @@ skillshare install git@github.com:user/repo.git
 | `--name <name>` | Override the skill name (direct install only) |
 | `--force, -f` | Overwrite if skill already exists |
 | `--update, -u` | Update existing (git pull if possible, else reinstall) |
+| `--track, -t` | Install as tracked repo (preserves .git for updates) |
 | `--dry-run, -n` | Preview discovered skills without installing |
 
 ### Examples
@@ -306,21 +474,42 @@ After uninstalling, run `skillshare sync` to update all targets.
 
 ## List Skills
 
-View all installed skills and their sources.
+View all installed skills, tracked repos, and their sources.
 
 ```bash
-skillshare list            # List all skills
+skillshare list            # List all skills and tracked repos
 skillshare list --verbose  # Show detailed info (source, type, install date)
 ```
 
 Example output:
 ```
 Installed skills
---------------------------------------------------
-  my-skill                   (local)
-  skill-creator              github.com/google-gemini/gemini-cli/...
-  composio-skills            github.com/ComposioHQ/awesome-claude-skills
+-------------------------------------------------------
+  my-skill                        (local)
+  _team-repo__frontend__ui        (tracked: _team-repo)
+  personal__writing__email        (local)
+
+Tracked repositories
+-------------------------------------------------------
+  _team-repo            5 skills, up-to-date
 ```
+
+## Update Skills
+
+Update skills or tracked repositories.
+
+```bash
+# Update regular skills (reinstalls from stored source)
+skillshare update my-skill            # Update skill from its source
+skillshare update my-skill --dry-run  # Preview update
+
+# Update tracked repos (git pull)
+skillshare update _team-repo          # Update specific repo
+skillshare update team-repo           # _ prefix is optional
+skillshare update --all               # Update all tracked repos
+```
+
+After updating, run `skillshare sync` to distribute changes to all targets.
 
 ## Upgrade
 
@@ -569,6 +758,7 @@ This is why `skillshare target remove` is safe, while `rm -rf ~/.claude/skills` 
 - Deleting a symlinked target removed source files: use `skillshare target remove <name>` to unlink, then recover via git if needed.
 - Target directory already exists with files: run `skillshare backup` before `skillshare sync` to migrate safely.
 - Target path does not end with `skills`: verify the path and prefer `.../skills` as the suffix.
+- `target add` fails with "path does not exist": create the directory first with `mkdir -p <path>`.
 
 ## Contributing
 

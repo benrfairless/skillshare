@@ -1,7 +1,7 @@
 ---
 name: skillshare
-version: 0.5.0
-description: Manages and syncs skills across AI CLI tools (Claude, Cursor, Codex) from a single source of truth. Use when asked to "sync my skills", "pull skills", "show skillshare status", "list my skills", "install a skill", or manage skill targets.
+version: 0.6.0
+description: Manages and syncs skills across AI CLI tools (Claude, Cursor, Codex) from a single source of truth. Use when asked to "sync my skills", "pull skills", "show skillshare status", "list my skills", "install a skill", "install tracked repo", "update skills", or manage skill targets.
 argument-hint: "[command] [target] [--dry-run]"
 ---
 
@@ -32,6 +32,9 @@ skillshare list                # Show installed skills
 | "show status" | `skillshare status` |
 | "what skills do I have" | `skillshare list` |
 | "install X skill" | `skillshare install <source>` → `skillshare sync` |
+| "install team repo" | `skillshare install <git-url> --track` → `skillshare sync` |
+| "update skill" | `skillshare update <name>` → `skillshare sync` |
+| "update all tracked repos" | `skillshare update --all` → `skillshare sync` |
 | "remove X skill" | `skillshare uninstall <name>` → `skillshare sync` |
 | "add cursor as target" | `skillshare target add cursor ~/.cursor/skills` |
 | "something's broken" | `skillshare doctor` |
@@ -73,9 +76,56 @@ skillshare init --no-copy --no-targets --no-git   # Minimal
 | `sync` | Push skills to all targets |
 | `pull <target>` | Bring target's skills to source |
 | `diff` | See differences between source and targets |
-| `list` | Show installed skills |
+| `list` | Show installed skills and tracked repos |
 | `install <source>` | Add skill from path or git repo |
+| `install --track` | Install git repo as tracked repository |
+| `update <name>` | Update skill or tracked repo |
+| `update --all` | Update all tracked repos |
+| `uninstall <name>` | Remove skill or tracked repo |
 | `doctor` | Diagnose issues |
+
+## Team Edition (v0.6.0)
+
+Share skills with your team using tracked repositories:
+
+```bash
+# Install team skills repo
+skillshare install github.com/team/skills --track
+
+# Skills sync with _repo__ prefix
+# _team-skills/frontend/ui → _team-skills__frontend__ui
+
+# Update later
+skillshare update _team-skills    # git pull
+skillshare update --all           # update all tracked repos
+```
+
+**Features:**
+- Tracked repos start with `_` prefix (e.g., `_team-skills`)
+- Nested paths use `__` separator (e.g., `team__frontend__ui`)
+- Auto-pruning removes orphaned symlinks on sync
+- Name collision detection warns about duplicate SKILL.md names
+- Uninstall checks for uncommitted changes
+
+**Best Practice:** Use `{team}:{name}` format in SKILL.md to avoid name collisions:
+```yaml
+# In _acme-corp/frontend/ui/SKILL.md
+name: acme:ui
+```
+
+## Nested Skills (Manual Organization)
+
+Organize skills in subdirectories — skillshare auto-flattens on sync:
+
+```
+Source                    Target
+───────────────────────────────────
+my-skill/            →   my-skill/
+work/api/            →   work__api/
+personal/writing/    →   personal__writing/
+```
+
+A directory with `SKILL.md` is treated as a skill.
 
 ## Symlink Safety
 

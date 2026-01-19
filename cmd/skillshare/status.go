@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"skillshare/internal/config"
+	"skillshare/internal/install"
 	"skillshare/internal/sync"
 	"skillshare/internal/ui"
 	"skillshare/internal/utils"
@@ -22,6 +24,7 @@ func cmdStatus(args []string) error {
 	}
 
 	printSourceStatus(cfg)
+	printTrackedReposStatus(cfg)
 	printTargetsStatus(cfg)
 	checkSkillVersion(cfg)
 
@@ -44,6 +47,48 @@ func printSourceStatus(cfg *config.Config) {
 		}
 	}
 	ui.Success("%s (%d skills, %s)", cfg.Source, skillCount, info.ModTime().Format("2006-01-02 15:04"))
+}
+
+func printTrackedReposStatus(cfg *config.Config) {
+	trackedRepos, err := install.GetTrackedRepos(cfg.Source)
+	if err != nil || len(trackedRepos) == 0 {
+		return // No tracked repos, skip this section
+	}
+
+	ui.Header("Tracked Repositories")
+	for _, repoName := range trackedRepos {
+		repoPath := filepath.Join(cfg.Source, repoName)
+
+		// Count skills in this repo
+		discovered, _ := sync.DiscoverSourceSkills(cfg.Source)
+		skillCount := 0
+		for _, d := range discovered {
+			if d.IsInRepo && strings.HasPrefix(d.RelPath, repoName+"/") {
+				skillCount++
+			}
+		}
+
+		// Check git status
+		statusStr := "up-to-date"
+		statusIcon := "✓"
+		if isDirty, _ := checkRepoDirty(repoPath); isDirty {
+			statusStr = "has uncommitted changes"
+			statusIcon = "!"
+		}
+
+		ui.Status(repoName, statusIcon, fmt.Sprintf("%d skills, %s", skillCount, statusStr))
+	}
+}
+
+// checkRepoDirty checks if a git repository has uncommitted changes
+func checkRepoDirty(repoPath string) (bool, error) {
+	cmd := exec.Command("git", "status", "--porcelain")
+	cmd.Dir = repoPath
+	output, err := cmd.Output()
+	if err != nil {
+		return false, err
+	}
+	return len(strings.TrimSpace(string(output))) > 0, nil
 }
 
 func printTargetsStatus(cfg *config.Config) {

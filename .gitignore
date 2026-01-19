@@ -18,5 +18,7 @@ coverage.out
 .claude/
 AGENTS.md
 
+/docs/
+
 # Worktrees
 .worktrees/

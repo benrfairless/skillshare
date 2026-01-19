@@ -112,6 +112,26 @@ func (sb *Sandbox) CreateSkill(name string, files map[string]string) string {
 	return skillDir
 }
 
+// CreateNestedSkill creates a test skill at a nested path in the source directory.
+// The relPath can use / as separator, e.g., "personal/writing/email" or "_team-repo/frontend/ui"
+func (sb *Sandbox) CreateNestedSkill(relPath string, files map[string]string) string {
+	sb.T.Helper()
+
+	skillDir := filepath.Join(sb.SourcePath, filepath.FromSlash(relPath))
+	if err := os.MkdirAll(skillDir, 0755); err != nil {
+		sb.T.Fatalf("failed to create nested skill directory: %v", err)
+	}
+
+	for filename, content := range files {
+		path := filepath.Join(skillDir, filename)
+		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+			sb.T.Fatalf("failed to write file %s: %v", path, err)
+		}
+	}
+
+	return skillDir
+}
+
 // CreateTarget creates a target directory
 func (sb *Sandbox) CreateTarget(name string) string {
 	sb.T.Helper()

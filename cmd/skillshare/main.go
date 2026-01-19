@@ -48,6 +48,8 @@ func main() {
 		err = cmdTarget(args)
 	case "upgrade":
 		err = cmdUpgrade(args)
+	case "update":
+		err = cmdUpdate(args)
 	case "version", "-v", "--version":
 		fmt.Printf("skillshare %s\n", version)
 	case "help", "-h", "--help":
@@ -95,6 +97,8 @@ Commands:
   target remove --all [--dry-run]   Unlink all targets
   target list                       List all targets
   upgrade [--skill|--cli] [--force] Upgrade CLI and/or skillshare skill
+  update <name> [--dry-run]         Update a skill or tracked repository
+  update --all [--dry-run]          Update all tracked repositories
   version                           Show version
   help                              Show this help
 

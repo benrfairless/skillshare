@@ -5,10 +5,80 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"skillshare/internal/config"
 	"skillshare/internal/utils"
 )
+
+// DiscoveredSkill represents a skill found during recursive source directory scan.
+type DiscoveredSkill struct {
+	SourcePath string // Full path: ~/.config/skillshare/skills/_team/frontend/ui
+	RelPath    string // Relative path from source: _team/frontend/ui
+	FlatName   string // Flat name for target: _team__frontend__ui
+	IsInRepo   bool   // Whether this skill is inside a tracked repo (_-prefixed directory)
+}
+
+// DiscoverSourceSkills recursively scans the source directory for skills.
+// A skill is identified by the presence of a SKILL.md file.
+// Returns all discovered skills with their metadata for syncing.
+func DiscoverSourceSkills(sourcePath string) ([]DiscoveredSkill, error) {
+	var skills []DiscoveredSkill
+
+	err := filepath.Walk(sourcePath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil // Skip inaccessible paths
+		}
+
+		// Skip hidden directories (except _ prefixed tracked repos)
+		if info.IsDir() {
+			name := info.Name()
+			// Skip .git and other hidden directories
+			if utils.IsHidden(name) {
+				return filepath.SkipDir
+			}
+		}
+
+		// Look for SKILL.md files
+		if !info.IsDir() && info.Name() == "SKILL.md" {
+			skillDir := filepath.Dir(path)
+			relPath, err := filepath.Rel(sourcePath, skillDir)
+			if err != nil {
+				return nil // Skip if we can't get relative path
+			}
+
+			// Skip root level (source directory itself)
+			if relPath == "." {
+				return nil
+			}
+
+			// Normalize path separators
+			relPath = strings.ReplaceAll(relPath, "\\", "/")
+
+			// Check if this skill is inside a tracked repo
+			isInRepo := false
+			parts := strings.Split(relPath, "/")
+			if len(parts) > 0 && utils.IsTrackedRepoDir(parts[0]) {
+				isInRepo = true
+			}
+
+			skills = append(skills, DiscoveredSkill{
+				SourcePath: skillDir,
+				RelPath:    relPath,
+				FlatName:   utils.PathToFlatName(relPath),
+				IsInRepo:   isInRepo,
+			})
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to walk source directory: %w", err)
+	}
+
+	return skills, nil
+}
 
 // TargetStatus represents the state of a target
 type TargetStatus int
@@ -249,7 +319,8 @@ type MergeResult struct {
 }
 
 // SyncTargetMerge performs merge mode sync - creates symlinks for each skill individually
-// while preserving target-specific skills
+// while preserving target-specific skills.
+// Supports nested skills: source path "personal/writing/email" becomes target symlink "personal__writing__email"
 func SyncTargetMerge(name string, target config.TargetConfig, sourcePath string, dryRun bool) (*MergeResult, error) {
 	result := &MergeResult{}
 
@@ -273,26 +344,15 @@ func SyncTargetMerge(name string, target config.TargetConfig, sourcePath string,
 		}
 	}
 
-	// Read skills from source
-	sourceEntries, err := os.ReadDir(sourcePath)
+	// Discover all skills recursively from source
+	discoveredSkills, err := DiscoverSourceSkills(sourcePath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read source directory: %w", err)
+		return nil, fmt.Errorf("failed to discover skills: %w", err)
 	}
 
-	for _, entry := range sourceEntries {
-		// Skip hidden files/directories
-		if utils.IsHidden(entry.Name()) {
-			continue
-		}
-
-		// Only process directories (skills are directories)
-		if !entry.IsDir() {
-			continue
-		}
-
-		skillName := entry.Name()
-		sourceSkillPath := filepath.Join(sourcePath, skillName)
-		targetSkillPath := filepath.Join(target.Path, skillName)
+	for _, skill := range discoveredSkills {
+		// Use flat name in target (e.g., "personal__writing__email")
+		targetSkillPath := filepath.Join(target.Path, skill.FlatName)
 
 		// Check if skill exists in target
 		targetInfo, err := os.Lstat(targetSkillPath)
@@ -302,44 +362,194 @@ func SyncTargetMerge(name string, target config.TargetConfig, sourcePath string,
 				// It's a symlink - check if it points to source
 				link, _ := os.Readlink(targetSkillPath)
 				absLink, _ := filepath.Abs(link)
-				absSource, _ := filepath.Abs(sourceSkillPath)
+				absSource, _ := filepath.Abs(skill.SourcePath)
 
 				if absLink == absSource {
 					// Already correctly linked
-					result.Linked = append(result.Linked, skillName)
+					result.Linked = append(result.Linked, skill.FlatName)
 					continue
 				}
 
 				// Symlink points elsewhere - broken or wrong
 				if dryRun {
-					fmt.Printf("[dry-run] Would fix symlink: %s\n", skillName)
+					fmt.Printf("[dry-run] Would fix symlink: %s\n", skill.FlatName)
 				} else {
 					os.Remove(targetSkillPath)
-					if err := os.Symlink(sourceSkillPath, targetSkillPath); err != nil {
-						return nil, fmt.Errorf("failed to create symlink for %s: %w", skillName, err)
+					if err := os.Symlink(skill.SourcePath, targetSkillPath); err != nil {
+						return nil, fmt.Errorf("failed to create symlink for %s: %w", skill.FlatName, err)
 					}
 				}
-				result.Updated = append(result.Updated, skillName)
+				result.Updated = append(result.Updated, skill.FlatName)
 			} else {
 				// It's a real directory - skip (preserve local skill)
-				result.Skipped = append(result.Skipped, skillName)
+				result.Skipped = append(result.Skipped, skill.FlatName)
 			}
 		} else if os.IsNotExist(err) {
 			// Doesn't exist - create symlink
 			if dryRun {
-				fmt.Printf("[dry-run] Would create symlink: %s -> %s\n", targetSkillPath, sourceSkillPath)
+				fmt.Printf("[dry-run] Would create symlink: %s -> %s\n", targetSkillPath, skill.SourcePath)
 			} else {
-				if err := os.Symlink(sourceSkillPath, targetSkillPath); err != nil {
-					return nil, fmt.Errorf("failed to create symlink for %s: %w", skillName, err)
+				if err := os.Symlink(skill.SourcePath, targetSkillPath); err != nil {
+					return nil, fmt.Errorf("failed to create symlink for %s: %w", skill.FlatName, err)
 				}
 			}
-			result.Linked = append(result.Linked, skillName)
+			result.Linked = append(result.Linked, skill.FlatName)
 		} else {
-			return nil, fmt.Errorf("failed to check target skill %s: %w", skillName, err)
+			return nil, fmt.Errorf("failed to check target skill %s: %w", skill.FlatName, err)
 		}
 	}
 
 	return result, nil
+}
+
+// PruneResult holds the result of a prune operation
+type PruneResult struct {
+	Removed  []string // Items that were removed
+	Warnings []string // Items that were kept with warnings
+}
+
+// PruneOrphanLinks removes orphan symlinks from target that no longer exist in source.
+// Uses a three-layer safety check:
+// 1. Dead symlinks pointing to source directory -> remove
+// 2. Directories with __ separator or @ prefix (skillshare-managed) -> remove if orphan
+// 3. Unknown directories -> keep and warn
+func PruneOrphanLinks(targetPath, sourcePath string, dryRun bool) (*PruneResult, error) {
+	result := &PruneResult{}
+
+	// Get current valid skills from source
+	discoveredSkills, err := DiscoverSourceSkills(sourcePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to discover skills for pruning: %w", err)
+	}
+
+	// Build a set of valid flat names
+	validFlatNames := make(map[string]bool)
+	for _, skill := range discoveredSkills {
+		validFlatNames[skill.FlatName] = true
+	}
+
+	// Scan target directory
+	entries, err := os.ReadDir(targetPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return result, nil // Target doesn't exist, nothing to prune
+		}
+		return nil, fmt.Errorf("failed to read target directory: %w", err)
+	}
+
+	absSource, _ := filepath.Abs(sourcePath)
+
+	for _, entry := range entries {
+		name := entry.Name()
+
+		// Skip hidden files
+		if utils.IsHidden(name) {
+			continue
+		}
+
+		entryPath := filepath.Join(targetPath, name)
+		info, err := os.Lstat(entryPath)
+		if err != nil {
+			continue
+		}
+
+		// Check if this entry is still valid
+		if validFlatNames[name] {
+			continue // Still exists in source, keep it
+		}
+
+		// Entry is orphan - determine if we should remove it
+		shouldRemove := false
+		reason := ""
+
+		if info.Mode()&os.ModeSymlink != 0 {
+			link, _ := os.Readlink(entryPath)
+			absLink := link
+			if !filepath.IsAbs(link) {
+				absLink = filepath.Join(filepath.Dir(entryPath), link)
+			}
+			absLink, _ = filepath.Abs(absLink)
+
+			targetExists := false
+			if _, err := os.Stat(absLink); err == nil {
+				targetExists = true
+			}
+
+			if strings.HasPrefix(absLink, absSource+string(filepath.Separator)) {
+				if !targetExists {
+					shouldRemove = true
+					reason = "broken symlink to source"
+				} else {
+					shouldRemove = true
+					reason = "orphan symlink to source"
+				}
+			} else {
+				result.Warnings = append(result.Warnings,
+					fmt.Sprintf("%s: symlink to external location (%s), kept", name, link))
+			}
+		} else if info.IsDir() {
+			// It's a directory - check naming characteristics
+			// Safety check 2: Only remove if it has skillshare naming patterns
+			if utils.HasNestedSeparator(name) || utils.IsTrackedRepoDir(name) {
+				shouldRemove = true
+				reason = "orphan skillshare-managed directory"
+			} else {
+				// Safety check 3: Unknown directory - warn and keep
+				result.Warnings = append(result.Warnings,
+					fmt.Sprintf("%s: unknown directory (not from skillshare), kept", name))
+			}
+		}
+
+		if shouldRemove {
+			if dryRun {
+				fmt.Printf("[dry-run] Would remove %s: %s\n", reason, entryPath)
+			} else {
+				if err := os.RemoveAll(entryPath); err != nil {
+					result.Warnings = append(result.Warnings,
+						fmt.Sprintf("%s: failed to remove: %v", name, err))
+					continue
+				}
+			}
+			result.Removed = append(result.Removed, name)
+		}
+	}
+
+	return result, nil
+}
+
+// NameCollision represents a conflict where multiple skills share the same name
+type NameCollision struct {
+	Name  string   // The conflicting SKILL.md name
+	Paths []string // All paths that have this name
+}
+
+// CheckNameCollisions detects skills with duplicate names in SKILL.md.
+// Returns a list of collisions (skills that share the same name).
+func CheckNameCollisions(skills []DiscoveredSkill) []NameCollision {
+	// Map: skill name -> list of paths
+	nameMap := make(map[string][]string)
+
+	for _, skill := range skills {
+		// Parse the actual name from SKILL.md
+		name, err := utils.ParseSkillName(skill.SourcePath)
+		if err != nil || name == "" {
+			continue // Skip if we can't parse or no name
+		}
+		nameMap[name] = append(nameMap[name], skill.RelPath)
+	}
+
+	// Find collisions (names with multiple paths)
+	var collisions []NameCollision
+	for name, paths := range nameMap {
+		if len(paths) > 1 {
+			collisions = append(collisions, NameCollision{
+				Name:  name,
+				Paths: paths,
+			})
+		}
+	}
+
+	return collisions
 }
 
 // CheckStatusMerge checks the status of a target in merge mode
@@ -389,9 +599,17 @@ func CheckStatusMerge(targetPath, sourcePath string) (TargetStatus, int, int) {
 		}
 
 		if info.Mode()&os.ModeSymlink != 0 {
-			// It's a symlink - check if it points to source
+			// It's a symlink - check if it points to somewhere in source
 			link, _ := os.Readlink(skillPath)
-			if filepath.Dir(link) == sourcePath || filepath.Dir(filepath.Join(filepath.Dir(skillPath), link)) == sourcePath {
+			absLink := link
+			if !filepath.IsAbs(link) {
+				absLink = filepath.Join(filepath.Dir(skillPath), link)
+			}
+			absLink, _ = filepath.Abs(absLink)
+			absSource, _ := filepath.Abs(sourcePath)
+
+			// Check if the symlink target is within the source directory
+			if strings.HasPrefix(absLink, absSource+string(filepath.Separator)) || absLink == absSource {
 				linkedCount++
 			} else {
 				localCount++
