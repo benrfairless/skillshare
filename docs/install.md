@@ -289,6 +289,17 @@ skillshare update --all            # Update ALL tracked repos
 └─────────────────────────────────────────┘
 ```
 
+**Safety check:** If the repo has uncommitted changes, update is blocked:
+```bash
+skillshare update _team-repo
+# → "Repository has uncommitted changes"
+# → Shows modified files
+# → Requires --force to override
+
+skillshare update _team-repo --force  # Update anyway (may cause conflicts)
+skillshare update --all               # Skips dirty repos, updates others
+```
+
 ### After Updating
 
 ```bash

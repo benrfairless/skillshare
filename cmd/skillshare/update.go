@@ -51,14 +51,14 @@ func cmdUpdate(args []string) error {
 	}
 
 	if updateAll {
-		return updateAllTrackedRepos(cfg, dryRun)
+		return updateAllTrackedRepos(cfg, dryRun, force)
 	}
 
 	// Determine if it's a tracked repo or regular skill
 	return updateSkillOrRepo(cfg, name, dryRun, force)
 }
 
-func updateAllTrackedRepos(cfg *config.Config, dryRun bool) error {
+func updateAllTrackedRepos(cfg *config.Config, dryRun, force bool) error {
 	repos, err := install.GetTrackedRepos(cfg.Source)
 	if err != nil {
 		return fmt.Errorf("failed to get tracked repos: %w", err)
@@ -75,9 +75,20 @@ func updateAllTrackedRepos(cfg *config.Config, dryRun bool) error {
 
 	hasError := false
 	updated := 0
+	skipped := 0
 
 	for _, repo := range repos {
 		repoPath := filepath.Join(cfg.Source, repo)
+
+		// Check for uncommitted changes
+		if isDirty, _ := isRepoDirty(repoPath); isDirty {
+			if !force {
+				ui.Warning("  %s: has uncommitted changes (use --force to override)", repo)
+				skipped++
+				continue
+			}
+			ui.Warning("  %s: has uncommitted changes, updating anyway (--force)", repo)
+		}
 
 		if dryRun {
 			ui.Info("[dry-run] Would update %s", repo)
@@ -100,6 +111,11 @@ func updateAllTrackedRepos(cfg *config.Config, dryRun bool) error {
 		ui.Info("Run 'skillshare sync' to distribute updated skills to targets")
 	}
 
+	if skipped > 0 {
+		fmt.Println()
+		ui.Info("Skipped %d repo(s) with uncommitted changes", skipped)
+	}
+
 	if hasError {
 		return fmt.Errorf("some repositories failed to update")
 	}
@@ -116,7 +132,7 @@ func updateSkillOrRepo(cfg *config.Config, name string, dryRun, force bool) erro
 	repoPath := filepath.Join(cfg.Source, repoName)
 
 	if install.IsGitRepo(repoPath) {
-		return updateTrackedRepo(cfg, repoName, dryRun)
+		return updateTrackedRepo(cfg, repoName, dryRun, force)
 	}
 
 	// Try as regular skill
@@ -127,13 +143,13 @@ func updateSkillOrRepo(cfg *config.Config, name string, dryRun, force bool) erro
 
 	// Check if it's a nested path that exists
 	if install.IsGitRepo(skillPath) {
-		return updateTrackedRepo(cfg, name, dryRun)
+		return updateTrackedRepo(cfg, name, dryRun, force)
 	}
 
 	return fmt.Errorf("'%s' not found as tracked repo or skill with metadata", name)
 }
 
-func updateTrackedRepo(cfg *config.Config, repoName string, dryRun bool) error {
+func updateTrackedRepo(cfg *config.Config, repoName string, dryRun, force bool) error {
 	repoPath := filepath.Join(cfg.Source, repoName)
 
 	ui.Header("Updating tracked repository")
@@ -141,6 +157,18 @@ func updateTrackedRepo(cfg *config.Config, repoName string, dryRun bool) error {
 	ui.Info("Repository: %s", repoName)
 	ui.Info("Path: %s", repoPath)
 	fmt.Println()
+
+	// Check for uncommitted changes
+	if isDirty, _ := isRepoDirty(repoPath); isDirty {
+		if !force {
+			ui.Warning("Repository has uncommitted changes:")
+			showDirtyFiles(repoPath)
+			fmt.Println()
+			ui.Error("Use --force to update anyway (may cause merge conflicts)")
+			return fmt.Errorf("uncommitted changes in repository")
+		}
+		ui.Warning("Repository has uncommitted changes, updating anyway (--force)")
+	}
 
 	if dryRun {
 		ui.Warning("[dry-run] Would run: git pull")
@@ -221,6 +249,18 @@ func gitPullRepo(repoPath string) error {
 	return nil
 }
 
+func showDirtyFiles(repoPath string) {
+	cmd := exec.Command("git", "status", "--short")
+	cmd.Dir = repoPath
+	output, _ := cmd.Output()
+	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+	for _, line := range lines {
+		if line != "" {
+			fmt.Printf("  %s\n", line)
+		}
+	}
+}
+
 func printUpdateHelp() {
 	fmt.Println(`Usage: skillshare update <name> [options]
        skillshare update --all [options]
@@ -230,12 +270,15 @@ Update a skill or tracked repository.
 For tracked repos (_repo-name): runs git pull
 For regular skills: reinstalls from stored source metadata
 
+Safety: Tracked repos with uncommitted changes are skipped by default.
+Use --force to override (may cause merge conflicts).
+
 Arguments:
   name                Skill name or tracked repo name
 
 Options:
   --all, -a           Update all tracked repositories
-  --force, -f         Force update even if source unchanged
+  --force, -f         Force update even with uncommitted changes
   --dry-run, -n       Preview without making changes
   --help, -h          Show this help
 
@@ -244,5 +287,6 @@ Examples:
   skillshare update _team-skills          # Update tracked repo (git pull)
   skillshare update team-skills           # _ prefix is optional for repos
   skillshare update --all                 # Update all tracked repos
-  skillshare update --all --dry-run       # Preview updates`)
+  skillshare update --all --dry-run       # Preview updates
+  skillshare update _team --force         # Update even with local changes`)
 }
