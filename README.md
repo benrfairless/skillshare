@@ -16,7 +16,7 @@
 </p>
 
 <p align="center">
-  <img src=".github/assets/demo.gif" alt="skillshare demo" width="600">
+  <img src=".github/assets/demo.gif" alt="skillshare demo" width="960">
 </p>
 
 <p align="center">
