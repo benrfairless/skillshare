@@ -613,7 +613,7 @@ func GetTrackedRepos(sourceDir string) ([]string, error) {
 
 	var repos []string
 	for _, entry := range entries {
-		if entry.IsDir() && len(entry.Name()) > 0 && entry.Name()[0] == '@' {
+		if entry.IsDir() && len(entry.Name()) > 0 && entry.Name()[0] == '_' {
 			// Verify it's actually a git repo
 			gitDir := filepath.Join(sourceDir, entry.Name(), ".git")
 			if _, err := os.Stat(gitDir); err == nil {
