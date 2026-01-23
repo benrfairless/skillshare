@@ -161,6 +161,12 @@ func Check(currentVersion string) *CheckResult {
 
 	cache, _ := loadCache()
 
+	// If current version >= cached latest, clear stale cache (user may have manually updated)
+	if cache != nil && cache.LatestVersion != "" && !compareVersions(currentVersion, cache.LatestVersion) {
+		ClearCache()
+		cache = nil
+	}
+
 	// Check if we need to fetch
 	needsFetch := cache == nil || time.Since(cache.LastChecked) > checkInterval
 
