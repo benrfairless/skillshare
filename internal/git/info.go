@@ -198,3 +198,66 @@ func Restore(repoPath string) error {
 	cmd.Dir = repoPath
 	return cmd.Run()
 }
+
+// GetCurrentBranch returns the current branch name
+func GetCurrentBranch(repoPath string) (string, error) {
+	cmd := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD")
+	cmd.Dir = repoPath
+	out, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
+// ForcePull fetches and resets to origin (handles force push)
+func ForcePull(repoPath string) (*UpdateInfo, error) {
+	info := &UpdateInfo{}
+
+	// Get hash before
+	beforeHash, err := GetCurrentHash(repoPath)
+	if err != nil {
+		return nil, err
+	}
+	info.BeforeHash = beforeHash
+
+	// Get current branch
+	branch, err := GetCurrentBranch(repoPath)
+	if err != nil {
+		return nil, err
+	}
+
+	// Fetch
+	if err := Fetch(repoPath); err != nil {
+		return nil, err
+	}
+
+	// Reset to origin/branch
+	cmd := exec.Command("git", "reset", "--hard", "origin/"+branch)
+	cmd.Dir = repoPath
+	if err := cmd.Run(); err != nil {
+		return nil, err
+	}
+
+	// Get hash after
+	afterHash, err := GetCurrentHash(repoPath)
+	if err != nil {
+		return nil, err
+	}
+	info.AfterHash = afterHash
+
+	if beforeHash == afterHash {
+		info.UpToDate = true
+		return info, nil
+	}
+
+	// Get commits between (may fail if history diverged, that's ok)
+	commits, _ := GetCommitsBetween(repoPath, beforeHash, afterHash)
+	info.Commits = commits
+
+	// Get diff stats
+	stats, _ := GetDiffStats(repoPath, beforeHash, afterHash)
+	info.Stats = stats
+
+	return info, nil
+}

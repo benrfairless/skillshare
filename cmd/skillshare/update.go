@@ -103,8 +103,13 @@ func updateAllTrackedRepos(cfg *config.Config, dryRun, force bool) error {
 			continue
 		}
 
-		// Pull
-		info, err := git.Pull(repoPath)
+		// Pull (use ForcePull if --force to handle force push)
+		var info *git.UpdateInfo
+		if force {
+			info, err = git.ForcePull(repoPath)
+		} else {
+			info, err = git.Pull(repoPath)
+		}
 		if err != nil {
 			ui.ListItem("error", repo, fmt.Sprintf("failed: %v", err))
 			failed++
@@ -222,7 +227,14 @@ func updateTrackedRepo(cfg *config.Config, repoName string, dryRun, force bool) 
 
 	spinner.Update("Fetching from origin...")
 
-	info, err := git.Pull(repoPath)
+	// Use ForcePull if --force to handle force push
+	var info *git.UpdateInfo
+	var err error
+	if force {
+		info, err = git.ForcePull(repoPath)
+	} else {
+		info, err = git.Pull(repoPath)
+	}
 	if err != nil {
 		spinner.Fail("Failed to update")
 		return fmt.Errorf("git pull failed: %w", err)
