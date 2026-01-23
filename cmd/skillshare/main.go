@@ -67,8 +67,11 @@ func main() {
 	}
 
 	// Check for updates (non-blocking, silent on errors)
-	if result := versioncheck.Check(version); result != nil && result.UpdateAvailable {
-		ui.UpdateNotification(result.CurrentVersion, result.LatestVersion)
+	// Skip for upgrade command since we just upgraded (current process still has old version)
+	if cmd != "upgrade" {
+		if result := versioncheck.Check(version); result != nil && result.UpdateAvailable {
+			ui.UpdateNotification(result.CurrentVersion, result.LatestVersion)
+		}
 	}
 }
 
