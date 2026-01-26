@@ -217,6 +217,10 @@ go test ./...
 
 [Open an issue](https://github.com/runkids/skillshare/issues) for bugs or feature requests.
 
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=runkids/skillshare&type=date&legend=top-left)](https://www.star-history.com/#runkids/skillshare&type=date&legend=top-left)
+
 ## License
 
 MIT
