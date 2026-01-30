@@ -13,8 +13,8 @@ func TestHelp_ShowsUsage(t *testing.T) {
 	result := sb.RunCLI("help")
 	result.AssertSuccess(t)
 	result.AssertOutputContains(t, "skillshare")
-	result.AssertOutputContains(t, "Usage:")
-	result.AssertOutputContains(t, "Commands:")
+	result.AssertOutputContains(t, "CORE COMMANDS")
+	result.AssertOutputContains(t, "UTILITIES")
 }
 
 func TestHelp_ShortFlag(t *testing.T) {
@@ -23,7 +23,7 @@ func TestHelp_ShortFlag(t *testing.T) {
 
 	result := sb.RunCLI("-h")
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Usage:")
+	result.AssertOutputContains(t, "CORE COMMANDS")
 }
 
 func TestHelp_LongFlag(t *testing.T) {
@@ -32,7 +32,7 @@ func TestHelp_LongFlag(t *testing.T) {
 
 	result := sb.RunCLI("--help")
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Usage:")
+	result.AssertOutputContains(t, "CORE COMMANDS")
 }
 
 func TestNoArgs_ShowsUsage(t *testing.T) {
@@ -41,7 +41,7 @@ func TestNoArgs_ShowsUsage(t *testing.T) {
 
 	result := sb.RunCLI()
 	result.AssertFailure(t)
-	result.AssertOutputContains(t, "Usage:")
+	result.AssertOutputContains(t, "CORE COMMANDS")
 }
 
 func TestUnknownCommand_ShowsError(t *testing.T) {
