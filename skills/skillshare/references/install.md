@@ -40,7 +40,7 @@ Updates skills or tracked repos.
 ```bash
 skillshare update my-skill       # Update from stored source
 skillshare update _team-repo     # Git pull tracked repo
-skillshare update --all          # Update all tracked repos
+skillshare update --all          # Update all tracked repos + skills with metadata
 skillshare update _repo --force  # Discard local changes and update
 ```
 

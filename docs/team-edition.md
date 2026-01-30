@@ -111,7 +111,7 @@ skillshare install github.com/team/skills --track
 
 ```bash
 skillshare update _team-skills    # Update specific repo
-skillshare update --all           # Update ALL tracked repos
+skillshare update --all           # Update all tracked repos + skills
 skillshare sync                   # Sync changes to targets
 ```
 
@@ -244,7 +244,7 @@ name: other:ui
 |---------|-------------|
 | `install <url> --track` | Clone repo as tracked repository |
 | `update _repo-name` | Git pull tracked repo |
-| `update --all` | Update all tracked repos |
+| `update --all` | Update all tracked repos + skills with metadata |
 | `list` | Show skills and tracked repos |
 | `status` | Show repo status (up-to-date/has changes) |
 | `uninstall _repo-name` | Remove tracked repo (checks uncommitted) |

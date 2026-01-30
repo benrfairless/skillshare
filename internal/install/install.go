@@ -449,19 +449,46 @@ func handleUpdate(source *Source, destPath string, result *InstallResult, opts I
 	// For other cases (e.g., git with subdir), reinstall automatically
 	// --update implies willingness to reinstall when git pull is not possible
 
-	// Remove and reinstall
-	if !opts.DryRun {
-		if err := os.RemoveAll(destPath); err != nil {
-			return nil, fmt.Errorf("failed to remove existing skill: %w", err)
+	if opts.DryRun {
+		result.Action = "would reinstall from source"
+		return result, nil
+	}
+
+	// Safe update: install to temp first, then swap
+	tempDir, err := os.MkdirTemp("", "skillshare-update-*")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create temp directory: %w", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	tempDest := filepath.Join(tempDir, "skill")
+
+	// Install to temp location first
+	_, err = Install(source, tempDest, InstallOptions{
+		Name:   opts.Name,
+		Force:  true,
+		DryRun: false,
+		Update: false,
+	})
+	if err != nil {
+		// Installation failed - original skill is preserved
+		return nil, err
+	}
+
+	// Installation succeeded - now safe to remove original and move new
+	if err := os.RemoveAll(destPath); err != nil {
+		return nil, fmt.Errorf("failed to remove existing skill: %w", err)
+	}
+
+	if err := os.Rename(tempDest, destPath); err != nil {
+		// Rename failed (possibly cross-device), try copy instead
+		if err := copyDir(tempDest, destPath); err != nil {
+			return nil, fmt.Errorf("failed to move updated skill: %w", err)
 		}
 	}
 
-	return Install(source, destPath, InstallOptions{
-		Name:   opts.Name,
-		Force:  true, // Force=true to handle dry-run case where destPath still exists
-		DryRun: opts.DryRun,
-		Update: false,
-	})
+	result.Action = "reinstalled"
+	return result, nil
 }
 
 // checkSkillFile adds a warning if SKILL.md is not found

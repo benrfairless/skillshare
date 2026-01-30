@@ -35,7 +35,7 @@ skillshare list                # Show skills and tracked repos
 | Install from repo (browse) | `skillshare install owner/repo` (discovery mode) |
 | Install team repo | `skillshare install <git-url> --track` then `sync` |
 | Update skill/repo | `skillshare update <name>` then `sync` |
-| Update all tracked | `skillshare update --all` then `sync` |
+| Update all | `skillshare update --all` then `sync` |
 | Remove skill | `skillshare uninstall <name>` then `sync` |
 | List skills | `skillshare list` or `list --verbose` |
 | Cross-machine push | `skillshare push -m "message"` |

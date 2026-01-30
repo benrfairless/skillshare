@@ -273,7 +273,7 @@ skillshare update pdf --dry-run    # Preview
 ```bash
 skillshare update _team-repo       # git pull specific repo
 skillshare update team-repo        # _ prefix optional
-skillshare update --all            # Update ALL tracked repos
+skillshare update --all            # Update all tracked repos + skills with metadata
 ```
 
 **How it works:**
@@ -297,8 +297,8 @@ skillshare update _team-repo
 # → Requires --force to discard and update
 
 skillshare update _team-repo --force  # Discards local changes, then pulls
-skillshare update --all               # Skips dirty repos, updates others
-skillshare update --all --force       # Discards all local changes, updates all
+skillshare update --all               # Update all (skips dirty repos)
+skillshare update --all --force       # Discards local changes, updates all
 ```
 
 ### After Updating

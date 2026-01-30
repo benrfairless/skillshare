@@ -116,12 +116,23 @@ func (s *Spinner) Success(message string) {
 	}
 }
 
-// Fail stops spinner with failure
+// Fail stops spinner with failure (red)
 func (s *Spinner) Fail(message string) {
 	if s.spinner != nil {
 		s.spinner.Fail(message)
 	} else {
 		fmt.Printf("✗ %s\n", message)
+	}
+}
+
+// Warn stops spinner with warning (yellow)
+func (s *Spinner) Warn(message string) {
+	elapsed := time.Since(s.start)
+	msg := fmt.Sprintf("%s (%.1fs)", message, elapsed.Seconds())
+	if s.spinner != nil {
+		s.spinner.Warning(msg)
+	} else {
+		fmt.Printf("! %s\n", msg)
 	}
 }
 

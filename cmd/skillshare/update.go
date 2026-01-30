@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -64,22 +65,29 @@ func updateAllTrackedRepos(cfg *config.Config, dryRun, force bool) error {
 		return fmt.Errorf("failed to get tracked repos: %w", err)
 	}
 
-	if len(repos) == 0 {
-		ui.Info("No tracked repositories found")
+	skills, err := getUpdatableSkills(cfg.Source)
+	if err != nil {
+		return fmt.Errorf("failed to get updatable skills: %w", err)
+	}
+
+	if len(repos) == 0 && len(skills) == 0 {
+		ui.Info("No tracked repositories or updatable skills found")
 		ui.Info("Use 'skillshare install <repo> --track' to add a tracked repository")
 		return nil
 	}
 
 	// Header
+	total := len(repos) + len(skills)
 	ui.HeaderBox("skillshare update --all",
-		fmt.Sprintf("Updating %d tracked repositories", len(repos)))
+		fmt.Sprintf("Updating %d tracked repos + %d skills", len(repos), len(skills)))
 	fmt.Println()
 
-	var updated, skipped, failed int
-	var failedRepos []string
+	var updated, skipped int
 
-	for _, repo := range repos {
+	// Update tracked repos
+	for i, repo := range repos {
 		repoPath := filepath.Join(cfg.Source, repo)
+		progress := fmt.Sprintf("[%d/%d]", i+1, total)
 
 		// Check for uncommitted changes
 		if isDirty, _ := git.IsDirty(repoPath); isDirty {
@@ -90,18 +98,19 @@ func updateAllTrackedRepos(cfg *config.Config, dryRun, force bool) error {
 			}
 			if !dryRun {
 				if err := git.Restore(repoPath); err != nil {
-					ui.ListItem("error", repo, fmt.Sprintf("failed to discard changes: %v", err))
-					failed++
-					failedRepos = append(failedRepos, repo)
+					ui.ListItem("warning", repo, fmt.Sprintf("failed to discard changes: %v", err))
+					skipped++
 					continue
 				}
 			}
 		}
 
 		if dryRun {
-			ui.ListItem("info", repo, "[dry-run] would update")
+			ui.ListItem("info", repo, "[dry-run] would git pull")
 			continue
 		}
+
+		spinner := ui.StartSpinner(fmt.Sprintf("%s Updating %s...", progress, repo))
 
 		// Pull (use ForcePull if --force to handle force push)
 		var info *git.UpdateInfo
@@ -111,18 +120,54 @@ func updateAllTrackedRepos(cfg *config.Config, dryRun, force bool) error {
 			info, err = git.Pull(repoPath)
 		}
 		if err != nil {
-			ui.ListItem("error", repo, fmt.Sprintf("failed: %v", err))
-			failed++
-			failedRepos = append(failedRepos, repo)
+			spinner.Warn(fmt.Sprintf("%s %v", repo, err))
+			skipped++
 			continue
 		}
 
 		if info.UpToDate {
-			ui.ListItem("success", repo, "Already up to date")
+			spinner.Success(fmt.Sprintf("%s Already up to date", repo))
 		} else {
-			detail := fmt.Sprintf("%d commits, %d files", len(info.Commits), info.Stats.FilesChanged)
-			ui.ListItem("success", repo, detail)
+			detail := fmt.Sprintf("%s %d commits, %d files", repo, len(info.Commits), info.Stats.FilesChanged)
+			spinner.Success(detail)
 		}
+		updated++
+	}
+
+	// Update regular skills with metadata
+	repoCount := len(repos)
+	for i, skill := range skills {
+		skillPath := filepath.Join(cfg.Source, skill)
+		progress := fmt.Sprintf("[%d/%d]", repoCount+i+1, total)
+
+		if dryRun {
+			ui.ListItem("info", skill, "[dry-run] would reinstall from source")
+			continue
+		}
+
+		spinner := ui.StartSpinner(fmt.Sprintf("%s Updating %s...", progress, skill))
+
+		meta, _ := install.ReadMeta(skillPath)
+		source, err := install.ParseSource(meta.Source)
+		if err != nil {
+			spinner.Warn(fmt.Sprintf("%s invalid source: %v", skill, err))
+			skipped++
+			continue
+		}
+
+		opts := install.InstallOptions{
+			Force:  true,
+			Update: true,
+		}
+
+		_, err = install.Install(source, skillPath, opts)
+		if err != nil {
+			spinner.Warn(fmt.Sprintf("%s %v", skill, err))
+			skipped++
+			continue
+		}
+
+		spinner.Success(fmt.Sprintf("%s Reinstalled from source", skill))
 		updated++
 	}
 
@@ -131,9 +176,9 @@ func updateAllTrackedRepos(cfg *config.Config, dryRun, force bool) error {
 		fmt.Println()
 		ui.Box("Summary",
 			"",
+			fmt.Sprintf("  Total:    %d", total),
 			fmt.Sprintf("  Updated:  %d", updated),
 			fmt.Sprintf("  Skipped:  %d", skipped),
-			fmt.Sprintf("  Failed:   %d", failed),
 			"",
 		)
 	}
@@ -143,15 +188,32 @@ func updateAllTrackedRepos(cfg *config.Config, dryRun, force bool) error {
 		ui.Info("Run 'skillshare sync' to distribute changes")
 	}
 
-	for _, repo := range failedRepos {
-		ui.Warning("%s failed to update", repo)
-	}
-
-	if failed > 0 {
-		return fmt.Errorf("some repositories failed to update")
-	}
-
 	return nil
+}
+
+// getUpdatableSkills returns skill names that have metadata with a remote source
+func getUpdatableSkills(sourceDir string) ([]string, error) {
+	entries, err := os.ReadDir(sourceDir)
+	if err != nil {
+		return nil, err
+	}
+
+	var skills []string
+	for _, entry := range entries {
+		// Skip tracked repos (start with _) and non-directories
+		if !entry.IsDir() || (len(entry.Name()) > 0 && entry.Name()[0] == '_') {
+			continue
+		}
+
+		skillPath := filepath.Join(sourceDir, entry.Name())
+		meta, err := install.ReadMeta(skillPath)
+		if err != nil || meta == nil || meta.Source == "" {
+			continue // No metadata or no source, skip
+		}
+
+		skills = append(skills, entry.Name())
+	}
+	return skills, nil
 }
 
 func updateSkillOrRepo(cfg *config.Config, name string, dryRun, force bool) error {
@@ -354,7 +416,7 @@ Arguments:
   name                Skill name or tracked repo name
 
 Options:
-  --all, -a           Update all tracked repositories
+  --all, -a           Update all tracked repos + skills with metadata
   --force, -f         Discard local changes and force update
   --dry-run, -n       Preview without making changes
   --help, -h          Show this help
@@ -363,7 +425,7 @@ Examples:
   skillshare update my-skill              # Update regular skill from source
   skillshare update _team-skills          # Update tracked repo (git pull)
   skillshare update team-skills           # _ prefix is optional for repos
-  skillshare update --all                 # Update all tracked repos
+  skillshare update --all                 # Update all tracked repos + skills
   skillshare update --all --dry-run       # Preview updates
   skillshare update _team --force         # Discard changes and update`)
 }
