@@ -169,9 +169,15 @@ func upgradeSkillshareSkill(dryRun, force bool) error {
 		exists = true
 	}
 
+	// If exists and not forced, just show status and return
+	if exists && !force {
+		ui.StepEnd("Status", "Already up to date ✓")
+		return nil
+	}
+
 	status := "Not installed"
 	if exists {
-		status = "Installed"
+		status = "Will upgrade"
 	}
 	ui.StepContinue("Status", status)
 
@@ -182,19 +188,6 @@ func upgradeSkillshareSkill(dryRun, force bool) error {
 		}
 		ui.StepEnd("Action", action)
 		return nil
-	}
-
-	// Confirm if exists and not forced
-	if exists && !force {
-		fmt.Println()
-		fmt.Print("  Overwrite existing skill? [y/N]: ")
-		var input string
-		fmt.Scanln(&input)
-		if input != "y" && input != "Y" && input != "yes" {
-			ui.Info("Cancelled")
-			return nil
-		}
-		fmt.Println()
 	}
 
 	// Install using install package
