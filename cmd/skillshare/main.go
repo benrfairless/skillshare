@@ -54,7 +54,7 @@ func main() {
 	case "new":
 		err = cmdNew(args)
 	case "version", "-v", "--version":
-		fmt.Printf("skillshare %s\n", version)
+		ui.Logo(version)
 	case "help", "-h", "--help":
 		printUsage()
 	default:
@@ -78,50 +78,95 @@ func main() {
 }
 
 func printUsage() {
-	fmt.Println(`skillshare - Share skills across AI CLI tools
+	// Colors
+	y := "\033[33m" // yellow - commands
+	c := "\033[36m" // cyan - arguments
+	g := "\033[90m" // gray
+	r := "\033[0m"  // reset
 
-Usage:
-  skillshare <command> [options]
+	// ASCII art logo
+	ui.Logo("")
 
-Commands:
-  init [--source PATH] [--remote URL] [--dry-run] Initialize skillshare
-  install <source> [--dry-run]      Install a skill from local path or git repo
-  uninstall <name> [--force]        Remove a skill from source directory
-  list [--verbose]                  List all installed skills
-  sync [--dry-run] [--force]        Sync skills to all targets
-  status                            Show status of all targets
-  diff [--target name]              Show differences between source and targets
-  backup [--target name] [--dry-run] Create backup of target(s)
-  backup --list                     List all backups
-  backup --cleanup [--dry-run]      Clean up old backups
-  restore <target> [--force] [--dry-run] Restore target from latest backup
-  restore <target> --from TS [--force] [--dry-run] Restore target from specific backup
-  pull [target] [--dry-run]         Pull local skills from target(s) to source
-  pull --all [--dry-run]            Pull from all targets
-  pull --remote [--dry-run]         Pull from git remote and sync to all targets
-  push [-m MSG] [--dry-run]         Commit and push skills to git remote
-  doctor                            Check environment and diagnose issues
-  target <name>                     Show target info
-  target <name> --mode MODE         Set target sync mode (merge|symlink)
-  target add <name> <path>          Add a target
-  target remove <name> [--dry-run]  Unlink target and restore skills
-  target remove --all [--dry-run]   Unlink all targets
-  target list                       List all targets
-  upgrade [--skill|--cli] [--force] Upgrade CLI and/or skillshare skill
-  update <name> [--dry-run]         Update a skill or tracked repository
-  update --all [--dry-run]          Update all tracked repositories
-  new <name> [--dry-run]            Create a new skill with SKILL.md template
-  version                           Show version
-  help                              Show this help
+	// Command width for alignment
+	const w = 35
 
-Examples:
-  skillshare init --source ~/.skills
-  skillshare new my-skill
-  skillshare install github.com/user/skill-repo
-  skillshare install github.com/org/repo/path/to/skill --dry-run
-  skillshare target add claude ~/.claude/skills
-  skillshare sync
-  skillshare status
-  skillshare backup --list
-  skillshare restore claude`)
+	// Helper: pad command to fixed width
+	pad := func(s string, width int) string {
+		// Count visible characters (exclude ANSI codes)
+		visible := 0
+		inEscape := false
+		for _, ch := range s {
+			if ch == '\033' {
+				inEscape = true
+			} else if inEscape && ch == 'm' {
+				inEscape = false
+			} else if !inEscape {
+				visible++
+			}
+		}
+		if visible < width {
+			return s + fmt.Sprintf("%*s", width-visible, "")
+		}
+		return s
+	}
+
+	// Helper: format command line
+	cmd := func(name, args, desc string) {
+		var cmdPart string
+		if args != "" {
+			cmdPart = y + name + r + " " + c + args + r
+		} else {
+			cmdPart = y + name + r
+		}
+		fmt.Printf("  %s %s\n", pad(cmdPart, w), desc)
+	}
+
+	// Core Commands
+	fmt.Println("CORE COMMANDS")
+	cmd("init", "", "Initialize skillshare")
+	cmd("install", "<source>", "Install a skill from local path or git repo")
+	cmd("uninstall", "<name>", "Remove a skill from source directory")
+	cmd("list", "", "List all installed skills")
+	cmd("sync", "", "Sync skills to all targets")
+	cmd("status", "", "Show status of all targets")
+	fmt.Println()
+
+	// Skill Management
+	fmt.Println("SKILL MANAGEMENT")
+	cmd("new", "<name>", "Create a new skill with SKILL.md template")
+	cmd("update", "<name>", "Update a skill or tracked repository")
+	cmd("update", "--all", "Update all tracked repositories")
+	cmd("upgrade", "", "Upgrade CLI and/or skillshare skill")
+	fmt.Println()
+
+	// Target Management
+	fmt.Println("TARGET MANAGEMENT")
+	cmd("target add", "<name> <path>", "Add a target")
+	cmd("target remove", "<name>", "Unlink target and restore skills")
+	cmd("target list", "", "List all targets")
+	cmd("diff", "", "Show differences between source and targets")
+	fmt.Println()
+
+	// Sync & Backup
+	fmt.Println("SYNC & BACKUP")
+	cmd("pull", "[target]", "Pull local skills from target(s) to source")
+	cmd("push", "", "Commit and push skills to git remote")
+	cmd("backup", "", "Create backup of target(s)")
+	cmd("restore", "<target>", "Restore target from latest backup")
+	fmt.Println()
+
+	// Utilities
+	fmt.Println("UTILITIES")
+	cmd("doctor", "", "Check environment and diagnose issues")
+	cmd("version", "", "Show version")
+	cmd("help", "", "Show this help")
+	fmt.Println()
+
+	// Examples
+	fmt.Println("EXAMPLES")
+	fmt.Println(g + "  skillshare init --source ~/.skills")
+	fmt.Println("  skillshare new my-skill")
+	fmt.Println("  skillshare install github.com/user/skill-repo")
+	fmt.Println("  skillshare target add claude ~/.claude/skills")
+	fmt.Println("  skillshare sync" + r)
 }

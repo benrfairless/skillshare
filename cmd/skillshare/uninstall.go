@@ -83,7 +83,6 @@ func cmdUninstall(args []string) error {
 	} else {
 		ui.Header("Uninstalling skill")
 	}
-	fmt.Println(strings.Repeat("-", 45))
 	ui.Info("Name: %s", skillName)
 	ui.Info("Path: %s", skillPath)
 	if isTrackedRepo {

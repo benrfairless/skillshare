@@ -105,7 +105,7 @@ func createBackup(targetName string, dryRun bool) error {
 		}
 		for i := 0; i < limit; i++ {
 			b := backups[i]
-			fmt.Printf("  %s %s (%s)\n", b.Timestamp, ui.Gray+strings.Join(b.Targets, ", ")+ui.Reset, b.Path)
+			ui.ListItem("info", b.Timestamp, fmt.Sprintf("%s (%s)", strings.Join(b.Targets, ", "), b.Path))
 		}
 	}
 

@@ -66,12 +66,10 @@ func cmdNew(args []string) error {
 
 	if dryRun {
 		ui.Header("New Skill (dry-run)")
-		fmt.Println(strings.Repeat("-", 45))
 		ui.Info("Would create: %s", skillDir)
 		ui.Info("Would write: %s", skillFile)
 		fmt.Println()
 		ui.Info("Template preview:")
-		fmt.Println(strings.Repeat("-", 45))
 		fmt.Println(template)
 		return nil
 	}
@@ -89,7 +87,6 @@ func cmdNew(args []string) error {
 	}
 
 	ui.Header("New Skill Created")
-	fmt.Println(strings.Repeat("-", 45))
 	ui.Success("Created: %s", skillFile)
 	fmt.Println()
 	ui.Info("Next steps:")

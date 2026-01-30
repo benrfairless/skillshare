@@ -123,7 +123,7 @@ func collectLocalSkills(targets map[string]config.TargetConfig, source string) [
 func displayLocalSkills(skills []sync.LocalSkillInfo) {
 	ui.Header("Local skills found")
 	for _, skill := range skills {
-		fmt.Printf("  %-20s [%s] %s\n", skill.Name, skill.TargetName, skill.Path)
+		ui.ListItem("info", skill.Name, fmt.Sprintf("[%s] %s", skill.TargetName, skill.Path))
 	}
 }
 

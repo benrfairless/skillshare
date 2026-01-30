@@ -79,10 +79,13 @@ func HeaderBox(command, subtitle string) {
 	box.Println(subtitle)
 }
 
-// Spinner wraps pterm spinner
+// Spinner wraps pterm spinner with step tracking
 type Spinner struct {
-	spinner *pterm.SpinnerPrinter
-	start   time.Time
+	spinner     *pterm.SpinnerPrinter
+	start       time.Time
+	currentStep int
+	totalSteps  int
+	stepPrefix  string
 }
 
 // StartSpinner starts a spinner with message
@@ -96,13 +99,44 @@ func StartSpinner(message string) *Spinner {
 	return &Spinner{spinner: s, start: time.Now()}
 }
 
+// StartSpinnerWithSteps starts a spinner that shows step progress
+func StartSpinnerWithSteps(message string, totalSteps int) *Spinner {
+	if !IsTTY() {
+		fmt.Printf("... [1/%d] %s\n", totalSteps, message)
+		return &Spinner{start: time.Now(), currentStep: 1, totalSteps: totalSteps}
+	}
+
+	stepPrefix := fmt.Sprintf("[1/%d] ", totalSteps)
+	s, _ := pterm.DefaultSpinner.Start(stepPrefix + message)
+	return &Spinner{
+		spinner:     s,
+		start:       time.Now(),
+		currentStep: 1,
+		totalSteps:  totalSteps,
+		stepPrefix:  stepPrefix,
+	}
+}
+
 // Update updates spinner text
 func (s *Spinner) Update(message string) {
 	if s.spinner != nil {
-		s.spinner.UpdateText(message)
+		s.spinner.UpdateText(s.stepPrefix + message)
 	} else {
-		fmt.Printf("... %s\n", message)
+		if s.totalSteps > 0 {
+			fmt.Printf("... [%d/%d] %s\n", s.currentStep, s.totalSteps, message)
+		} else {
+			fmt.Printf("... %s\n", message)
+		}
 	}
+}
+
+// NextStep advances to next step and updates message
+func (s *Spinner) NextStep(message string) {
+	if s.totalSteps > 0 && s.currentStep < s.totalSteps {
+		s.currentStep++
+		s.stepPrefix = fmt.Sprintf("[%d/%d] ", s.currentStep, s.totalSteps)
+	}
+	s.Update(message)
 }
 
 // Success stops spinner with success
@@ -333,6 +367,79 @@ func UpdateNotification(currentVersion, latestVersion string) {
 		WithTitle(pterm.Yellow("Update Available")).
 		WithBoxStyle(pterm.NewStyle(pterm.FgYellow))
 	box.Println(content)
+}
+
+// SyncSummary prints a beautiful sync summary box
+func SyncSummary(stats SyncStats) {
+	if !IsTTY() {
+		fmt.Printf("\n─── Sync Complete ───\n")
+		fmt.Printf("  Targets: %d  Linked: %d  Local: %d  Updated: %d  Pruned: %d\n",
+			stats.Targets, stats.Linked, stats.Local, stats.Updated, stats.Pruned)
+		if stats.Duration > 0 {
+			fmt.Printf("  Duration: %.1fs\n", stats.Duration.Seconds())
+		}
+		return
+	}
+
+	// Build stats line with colors
+	statsLine := fmt.Sprintf(
+		"  %s targets  %s linked  %s local  %s updated  %s pruned",
+		pterm.Cyan(fmt.Sprint(stats.Targets)),
+		pterm.Green(fmt.Sprint(stats.Linked)),
+		pterm.Blue(fmt.Sprint(stats.Local)),
+		pterm.Yellow(fmt.Sprint(stats.Updated)),
+		pterm.Gray(fmt.Sprint(stats.Pruned)),
+	)
+
+	var durationLine string
+	if stats.Duration > 0 {
+		durationLine = fmt.Sprintf("  Completed in %s", pterm.Gray(fmt.Sprintf("%.1fs", stats.Duration.Seconds())))
+	}
+
+	// Build content with proper padding
+	lines := []string{"", statsLine}
+	if durationLine != "" {
+		lines = append(lines, durationLine)
+	}
+	lines = append(lines, "")
+
+	// Find max display width
+	maxLen := 0
+	for _, line := range lines {
+		w := displayWidth(line)
+		if w > maxLen {
+			maxLen = w
+		}
+	}
+
+	// Pad lines
+	var content strings.Builder
+	for i, line := range lines {
+		padded := line
+		w := displayWidth(line)
+		if w < maxLen {
+			padded = line + strings.Repeat(" ", maxLen-w)
+		}
+		content.WriteString(padded)
+		if i < len(lines)-1 {
+			content.WriteString("\n")
+		}
+	}
+
+	box := pterm.DefaultBox.
+		WithTitle(pterm.Green("✓ Sync Complete")).
+		WithBoxStyle(pterm.NewStyle(pterm.FgGreen))
+	box.Println(content.String())
+}
+
+// SyncStats holds statistics for sync summary
+type SyncStats struct {
+	Targets  int
+	Linked   int
+	Local    int
+	Updated  int
+	Pruned   int
+	Duration time.Duration
 }
 
 // ListItem prints a list item with status

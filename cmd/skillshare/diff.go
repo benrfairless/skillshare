@@ -115,10 +115,10 @@ func showMergeDiff(targetPath, source string, sourceSkills map[string]bool) {
 	// Skills only in source (not synced)
 	for skill := range sourceSkills {
 		if !targetSkills[skill] {
-			fmt.Printf("  %s+ %s%s (in source, not in target)\n", ui.Green, skill, ui.Reset)
+			ui.DiffItem("add", skill, "(in source, not in target)")
 			hasChanges = true
 		} else if !targetSymlinks[skill] {
-			fmt.Printf("  %s~ %s%s (local copy, not linked)\n", ui.Yellow, skill, ui.Reset)
+			ui.DiffItem("modify", skill, "(local copy, not linked)")
 			hasChanges = true
 		}
 	}
@@ -126,7 +126,7 @@ func showMergeDiff(targetPath, source string, sourceSkills map[string]bool) {
 	// Skills only in target (local only)
 	for skill := range targetSkills {
 		if !sourceSkills[skill] && !targetSymlinks[skill] {
-			fmt.Printf("  %s- %s%s (local only, not in source)\n", ui.Cyan, skill, ui.Reset)
+			ui.DiffItem("remove", skill, "(local only, not in source)")
 			hasChanges = true
 		}
 	}
