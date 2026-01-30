@@ -725,7 +725,9 @@ func createDefaultSkill(sourcePath string, dryRun bool) {
 	}
 
 	ui.Header("Installing skillshare skill")
-	ui.Info("Downloading from GitHub...")
+
+	// Use spinner for download
+	spinner := ui.StartSpinner("Downloading from GitHub...")
 
 	// Try to install from GitHub using install package
 	source, err := install.ParseSource(skillshareSkillSource)
@@ -738,8 +740,8 @@ func createDefaultSkill(sourcePath string, dryRun bool) {
 	}
 
 	if err != nil {
+		spinner.Warn("Download failed, using fallback version")
 		// Fallback to minimal version
-		ui.Warning("Download failed, using fallback version")
 		if err := os.MkdirAll(skillshareSkillDir, 0755); err != nil {
 			ui.Warning("Failed to create skillshare skill directory: %v", err)
 			return
@@ -752,7 +754,7 @@ func createDefaultSkill(sourcePath string, dryRun bool) {
 		ui.Info("Run 'skillshare upgrade --skill' to get the full version")
 		return
 	}
-	ui.Success("Downloaded default skill: skillshare")
+	spinner.Success("Downloaded default skill: skillshare")
 }
 
 // agentInfo holds information about a detected agent for discover mode

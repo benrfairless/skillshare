@@ -184,10 +184,12 @@ func upgradeSkillshareSkill(dryRun, force bool) error {
 	}
 
 	// Install using install package (downloads entire directory including references/)
-	ui.Info("Downloading from GitHub...")
+	spinner := ui.StartSpinner("Downloading from GitHub...")
+
 	source, err := install.ParseSource(skillshareSkillSource)
 	if err != nil {
-		return fmt.Errorf("failed to parse source: %w", err)
+		spinner.Fail(fmt.Sprintf("Failed to parse source: %v", err))
+		return err
 	}
 	source.Name = "skillshare"
 
@@ -196,10 +198,11 @@ func upgradeSkillshareSkill(dryRun, force bool) error {
 		DryRun: false,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to download: %w", err)
+		spinner.Fail(fmt.Sprintf("Failed to download: %v", err))
+		return err
 	}
 
-	ui.Success("Upgraded skillshare skill")
+	spinner.Success("Upgraded skillshare skill")
 	ui.Info("Path: %s", skillshareSkillDir)
 	ui.Info("")
 	ui.Info("Run 'skillshare sync' to distribute to all targets")
