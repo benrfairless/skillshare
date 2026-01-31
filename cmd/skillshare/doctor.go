@@ -183,7 +183,7 @@ func checkTargetIssues(target config.TargetConfig, source string) []string {
 		link, _ := os.Readlink(target.Path)
 		absLink, _ := filepath.Abs(link)
 		absSource, _ := filepath.Abs(source)
-		if absLink != absSource {
+		if !utils.PathsEqual(absLink, absSource) {
 			targetIssues = append(targetIssues, fmt.Sprintf("symlink points to wrong location: %s", link))
 		}
 	}

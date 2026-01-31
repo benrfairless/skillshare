@@ -81,7 +81,7 @@ func showSymlinkDiff(targetPath, source string) {
 	link, _ := os.Readlink(targetPath)
 	absLink, _ := filepath.Abs(link)
 	absSource, _ := filepath.Abs(source)
-	if absLink == absSource {
+	if utils.PathsEqual(absLink, absSource) {
 		ui.Success("Fully synced (symlink mode)")
 	} else {
 		ui.Warning("Symlink points to different location: %s", link)

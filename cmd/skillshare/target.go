@@ -263,7 +263,7 @@ func unlinkMergeMode(targetPath, sourcePath string) error {
 			absLink, _ := filepath.Abs(link)
 			absSource, _ := filepath.Abs(sourceSkillPath)
 
-			if absLink == absSource {
+			if utils.PathsEqual(absLink, absSource) {
 				// Remove symlink and copy the skill back
 				os.Remove(skillPath)
 				if err := copyDir(sourceSkillPath, skillPath); err != nil {

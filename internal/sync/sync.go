@@ -137,7 +137,7 @@ func CheckStatus(targetPath, sourcePath string) TargetStatus {
 		absSource, _ := filepath.Abs(sourcePath)
 		absLink, _ = filepath.Abs(absLink)
 
-		if absLink == absSource {
+		if utils.PathsEqual(absLink, absSource) {
 			// Verify the link is not broken
 			if _, err := os.Stat(targetPath); err != nil {
 				return StatusBroken
@@ -364,7 +364,7 @@ func SyncTargetMerge(name string, target config.TargetConfig, sourcePath string,
 				absLink, _ := filepath.Abs(link)
 				absSource, _ := filepath.Abs(skill.SourcePath)
 
-				if absLink == absSource {
+				if utils.PathsEqual(absLink, absSource) {
 					// Already correctly linked
 					result.Linked = append(result.Linked, skill.FlatName)
 					continue
@@ -569,7 +569,7 @@ func CheckStatusMerge(targetPath, sourcePath string) (TargetStatus, int, int) {
 		link, _ := os.Readlink(targetPath)
 		absLink, _ := filepath.Abs(link)
 		absSource, _ := filepath.Abs(sourcePath)
-		if absLink == absSource {
+		if utils.PathsEqual(absLink, absSource) {
 			return StatusLinked, 0, 0
 		}
 		return StatusConflict, 0, 0
@@ -609,7 +609,7 @@ func CheckStatusMerge(targetPath, sourcePath string) (TargetStatus, int, int) {
 			absSource, _ := filepath.Abs(sourcePath)
 
 			// Check if the symlink target is within the source directory
-			if strings.HasPrefix(absLink, absSource+string(filepath.Separator)) || absLink == absSource {
+			if utils.PathHasPrefix(absLink, absSource+string(filepath.Separator)) || utils.PathsEqual(absLink, absSource) {
 				linkedCount++
 			} else {
 				localCount++

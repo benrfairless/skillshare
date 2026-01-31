@@ -52,7 +52,7 @@ func FindLocalSkills(targetPath, sourcePath string) ([]LocalSkillInfo, error) {
 		}
 		absLink, _ := filepath.Abs(link)
 		absSource, _ := filepath.Abs(sourcePath)
-		if absLink == absSource {
+		if utils.PathsEqual(absLink, absSource) {
 			// Symlink mode - no local skills
 			return skills, nil
 		}
