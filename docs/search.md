@@ -30,19 +30,9 @@ Interactive selector → Install selected skill
 
 ## Preview
 
-```
-▸  Searching  vercel
-│
-├─ Found 20 skill(s)  (16.0s)
-
-? Select skill to install (↑↓ to move, enter to select, ctrl+c to cancel):
-  reference-sdk           ★ 3.4k   parcadei/Continuous-Claude-v3/.claude/skills/reference-sdk
-  webf-infinite-scrolling ★ 2.3k   openwebf/webf/skills/webf-infinite-scrolling
-  react-best-practices    ★ 2.3k   OneKeyHQ/app-monorepo/.claude/skills/react-best-practices
-  vercel-react-best-practices ★ 1.7k   quran/quran.com-frontend-next/.agents/skills/vercel-react-best-practices
-  tech-stack-evaluator    ★ 1.5k   alirezarezvani/claude-skills/engineering-team/tech-stack-evaluator
-▸ moai-domain-uiux        ★ 593    modu-ai/moai-adk/.claude/skills/moai-domain-uiux
-```
+<p align="center">
+  <img src="../.github/assets/search-demo.png" alt="search demo" width="720">
+</p>
 
 **Controls:**
 - `↑` `↓` — Navigate results

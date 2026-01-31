@@ -15,7 +15,7 @@
 
 <p align="center">
   <strong>One source of truth for AI CLI skills. Sync everywhere with one command and simplify team sharing.</strong><br>
-  Claude Code, OpenClaw, OpenCode & 30+ more.
+  Claude Code, OpenClaw, OpenCode & 40+ more.
 </p>
 
 <p align="center">
@@ -45,22 +45,6 @@ Install tools get skills onto agents. **Skillshare keeps them in sync.**
 | Cross-machine | ✗ | **push/pull** via git |
 | Team sharing | Copy-paste | **Tracked repos** — `update` to stay current |
 | AI integration | Manual CLI | **Built-in skill** — AI operates it directly |
-
-### AI-Native
-
-The built-in [`skillshare` skill](https://github.com/runkids/skillshare/tree/main/skills/skillshare) teaches your AI how to manage skills. The binary auto-downloads on first use.
-
-```
-User: "sync my skills to all targets"
-       │
-       ▼
-AI reads skillshare skill → runs: skillshare sync
-       │
-       ▼
-✓ Synced 5 skills to claude, codex, cursor
-```
-
-> **Try it:** *"Show my skillshare status"*, *"Pull skills from Claude"*, *"Install the pdf skill from anthropics/skills"*
 
 ## Installation
 
@@ -133,6 +117,10 @@ Done. Your skills are now synced across all AI CLI tools.
 | macOS/Linux | `~/.config/skillshare/skills/` | Symlinks |
 | Windows | `%USERPROFILE%\.config\skillshare\skills\` | NTFS Junctions (no admin required) |
 
+<p align="center">
+  <img src=".github/assets/windows-init.png" alt="Windows init demo" width="720">
+</p>
+
 ## Commands
 
 | Command | Description |
@@ -151,6 +139,19 @@ Done. Your skills are now synced across all AI CLI tools.
 | `doctor` | Diagnose issues |
 | `upgrade` | Upgrade CLI and skill |
 
+## Documentation
+
+- **[docs/](docs/README.md)** — Documentation index
+- **[targets.md](docs/targets.md)** — Target management
+- **[sync.md](docs/sync.md)** — Sync, pull, push, backup
+- **[team-edition.md](docs/team-edition.md)** — Team sharing with tracked repos
+- **[install.md](docs/install.md)** — Install, update, upgrade skills
+- **[search.md](docs/search.md)** — Search and discover skills
+- **[cross-machine.md](docs/cross-machine.md)** — Multi-machine sync
+- **[faq.md](docs/faq.md)** — FAQ & troubleshooting
+
+---
+
 ### Target Management
 
 ```bash
@@ -159,7 +160,23 @@ skillshare target add myapp ~/.myapp/skills  # Add custom target
 skillshare target remove claude           # Safely unlink
 ```
 
-See [Documentation](docs/README.md) for complete reference.
+---
+
+## AI-Native
+
+The built-in [`skillshare` skill](https://github.com/runkids/skillshare/tree/main/skills/skillshare) teaches your AI how to manage skills. The binary auto-downloads on first use.
+
+```
+User: "sync my skills to all targets"
+       │
+       ▼
+AI reads skillshare skill → runs: skillshare sync
+       │
+       ▼
+✓ Synced 5 skills to claude, codex, cursor
+```
+
+> **Try it:** *"Show my skillshare status"*, *"Pull skills from Claude"*, *"Install the pdf skill from anthropics/skills"*
 
 ---
 
@@ -246,19 +263,6 @@ See [FAQ & Troubleshooting](docs/faq.md) for more.
 | Deleted source via symlink | Use `skillshare target remove`, recover via git |
 | Target exists with files | Run `skillshare backup` first |
 | Skill not appearing | Run `skillshare doctor`, restart CLI |
-
----
-
-## Documentation
-
-- **[docs/](docs/README.md)** — Documentation index
-- **[targets.md](docs/targets.md)** — Target management
-- **[sync.md](docs/sync.md)** — Sync, pull, push, backup
-- **[team-edition.md](docs/team-edition.md)** — Team sharing with tracked repos
-- **[install.md](docs/install.md)** — Install, update, upgrade skills
-- **[search.md](docs/search.md)** — Search and discover skills
-- **[cross-machine.md](docs/cross-machine.md)** — Multi-machine sync
-- **[faq.md](docs/faq.md)** — FAQ & troubleshooting
 
 ---
 
