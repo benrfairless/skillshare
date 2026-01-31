@@ -34,7 +34,7 @@
 </p>
 
 > [!NOTE]
-> **[What's New in 0.7.0](https://github.com/runkids/skillshare/releases/tag/v0.7.0)**: Full Windows support (NTFS junctions, zip downloads, self-upgrade), [Search skills](#search-skills) from GitHub. [Previous: Team Edition → docs/team-edition.md](docs/team-edition.md)
+> **[What's New in 0.8.0](https://github.com/runkids/skillshare/releases/tag/v0.8.0)**: Command rename: `pull <target>` → `collect <target>`, `pull --remote` → `pull`. Clearer command symmetry. [Previous: Windows support → v0.7.0](https://github.com/runkids/skillshare/releases/tag/v0.7.0)
 
 ## Why skillshare?
 
@@ -132,8 +132,9 @@ Done. Your skills are now synced across all AI CLI tools.
 | `new <name>` | Create a new skill with SKILL.md template |
 | `search <query>` | [Search GitHub for skills](#search-skills) |
 | `sync` | Sync skills to all targets |
-| `pull <target>` | Pull skills from target back to source |
+| `collect <target>` | Collect skills from target back to source |
 | `push` | Push to git remote (cross-machine) |
+| `pull` | Pull from git remote and sync |
 | `install <source>` | Install skill from path or git repo |
 | `uninstall <name>` | Remove skill from source |
 | `update <name>` | Update skill or tracked repo |
@@ -179,7 +180,7 @@ AI reads skillshare skill → runs: skillshare sync
 ✓ Synced 5 skills to claude, codex, cursor
 ```
 
-> **Try it:** *"Show my skillshare status"*, *"Pull skills from Claude"*, *"Install the pdf skill from anthropics/skills"*
+> **Try it:** *"Show my skillshare status"*, *"Collect skills from Claude"*, *"Install the pdf skill from anthropics/skills"*
 
 ---
 

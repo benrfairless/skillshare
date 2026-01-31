@@ -158,7 +158,7 @@ targets: {}
 	result := sb.RunCLI("push", "-m", "Test push")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Pushed to remote")
+	result.AssertOutputContains(t, "Push complete")
 }
 
 // Helper functions

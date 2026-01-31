@@ -1,4 +1,16 @@
-# Sync, Pull, Push & Backup
+# Sync, Collect, Pull, Push & Backup
+
+## Command Overview
+
+| 操作類型 | 命令 | 方向 |
+|----------|------|------|
+| **本地同步** | `sync` / `collect` | Source ↔ Targets |
+| **遠端同步** | `push` / `pull` | Source ↔ Git Remote |
+
+- `sync` = 從 Source 分發到 Targets
+- `collect` = 從 Targets 收集回 Source
+- `push` = 推送到 git 遠端
+- `pull` = 從 git 遠端拉取並同步
 
 ## Overview
 
@@ -10,13 +22,13 @@
 │                        │  Remote  │                             │
 │                        │  (git)   │                             │
 │                        └────┬─────┘                             │
-│                    push ↑   │   ↓ pull --remote                 │
+│                    push ↑   │   ↓ pull                          │
 │                             │                                   │
 │    ┌────────────────────────┼────────────────────────┐          │
 │    │                  SOURCE                         │          │
 │    │        ~/.config/skillshare/skills/             │          │
 │    └────────────────────────┬────────────────────────┘          │
-│                 sync ↓      │      ↑ pull <target>              │
+│                 sync ↓      │      ↑ collect                    │
 │         ┌───────────────────┼───────────────────┐               │
 │         ▼                   ▼                   ▼               │
 │   ┌──────────┐        ┌──────────┐        ┌──────────┐          │
@@ -29,9 +41,9 @@
 | Command | Direction | Description |
 |---------|-----------|-------------|
 | `sync` | Source → Targets | Push skills to all targets |
-| `pull <target>` | Target → Source | Pull skills from one target |
+| `collect <target>` | Target → Source | Collect skills from target to source |
 | `push` | Source → Remote | Commit and push to git |
-| `pull --remote` | Remote → Source → Targets | Pull from git, then sync |
+| `pull` | Remote → Source → Targets | Pull from git, then sync |
 
 ---
 
@@ -145,7 +157,7 @@ claude
   - local-only-skill   local only
 
 Run 'sync' to add missing, 'sync --force' to replace local copies
-Run 'pull claude' to import local-only skills to source
+Run 'collect claude' to import local-only skills to source
 ```
 
 ### Symbols
@@ -154,27 +166,25 @@ Run 'pull claude' to import local-only skills to source
 |--------|---------|--------|
 | `+` | In source, missing in target | `sync` will add |
 | `~` | Both have it, but target is a local copy (not symlink) | `sync --force` to replace with symlink |
-| `-` | Only in target, not in source | `pull` to import to source |
+| `-` | Only in target, not in source | `collect` to import to source |
 
 ---
 
-## Pull
+## Collect
 
-Pull skills from a target back to source.
-
-### Pull from Target
+Collect skills from a target back to source.
 
 ```bash
-skillshare pull claude           # Pull from Claude
-skillshare pull claude --dry-run # Preview
-skillshare pull --all            # Pull from all targets
+skillshare collect claude           # Collect from Claude
+skillshare collect claude --dry-run # Preview
+skillshare collect --all            # Collect from all targets
 ```
 
 **When to use**: You created/edited a skill directly in a target (e.g., `~/.claude/skills/`) and want to bring it to source.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│ skillshare pull claude                                          │
+│ skillshare collect claude                                       │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -196,23 +206,28 @@ skillshare pull --all            # Pull from all targets
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-**After pulling:**
+**After collecting:**
 ```bash
-skillshare pull claude
+skillshare collect claude
 skillshare sync  # ← Distribute to other targets
 ```
 
-### Pull from Remote
+---
+
+## Pull
+
+Pull from git remote and sync to all targets.
 
 ```bash
-skillshare pull --remote     # Pull from git remote
+skillshare pull              # Pull from git remote
+skillshare pull --dry-run    # Preview
 ```
 
 **When to use**: You pushed changes from another machine and want to sync them here.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│ skillshare pull --remote                                        │
+│ skillshare pull                                                 │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -253,7 +268,7 @@ skillshare push -m "Add pdf"     # Custom message
 ```
 
 **Conflict handling:**
-- If remote is ahead, `push` fails → run `pull --remote` first
+- If remote is ahead, `push` fails → run `pull` first
 
 ---
 

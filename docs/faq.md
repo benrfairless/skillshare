@@ -53,7 +53,7 @@ Use git-based cross-machine sync:
 skillshare push -m "Add new skill"
 
 # Machine B: pull and sync
-skillshare pull --remote
+skillshare pull
 ```
 
 See [cross-machine.md](cross-machine.md) for full setup.
@@ -154,17 +154,17 @@ ignore:
 
 ### Pull conflicts with local changes
 
-If `pull --remote` fails due to local changes:
+If `pull` fails due to local changes:
 
 ```bash
 # Option 1: Push your changes first
 skillshare push -m "Local changes"
-skillshare pull --remote
+skillshare pull
 
 # Option 2: Discard local changes
 cd ~/.config/skillshare/skills
 git checkout -- .
-skillshare pull --remote
+skillshare pull
 ```
 
 ### Skill not appearing in AI CLI

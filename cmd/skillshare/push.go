@@ -43,10 +43,10 @@ func parsePushArgs(args []string) *pushOptions {
 }
 
 // checkGitRepo verifies source is a git repo with remote
-func checkGitRepo(sourcePath string) error {
+func checkGitRepo(sourcePath string, spinner *ui.Spinner) error {
 	gitDir := sourcePath + "/.git"
 	if _, err := os.Stat(gitDir); os.IsNotExist(err) {
-		ui.Error("Source is not a git repository")
+		spinner.Fail("Source is not a git repository")
 		ui.Info("  Run: cd %s && git init", sourcePath)
 		return fmt.Errorf("not a git repository")
 	}
@@ -55,7 +55,7 @@ func checkGitRepo(sourcePath string) error {
 	cmd.Dir = sourcePath
 	output, err := cmd.Output()
 	if err != nil || strings.TrimSpace(string(output)) == "" {
-		ui.Error("No git remote configured")
+		spinner.Fail("No git remote configured")
 		ui.Info("  Run: cd %s && git remote add origin <url>", sourcePath)
 		ui.Info("  Or:  skillshare init --remote <url>")
 		return fmt.Errorf("no remote configured")
@@ -76,18 +76,20 @@ func getGitChanges(sourcePath string) (string, error) {
 }
 
 // stageAndCommit stages all changes and commits
-func stageAndCommit(sourcePath, message string) error {
-	ui.Info("Staging changes...")
+func stageAndCommit(sourcePath, message string, spinner *ui.Spinner) error {
+	spinner.Update("Staging changes...")
 	cmd := exec.Command("git", "add", "-A")
 	cmd.Dir = sourcePath
 	if err := cmd.Run(); err != nil {
+		spinner.Fail("Failed to stage changes")
 		return fmt.Errorf("failed to stage changes: %w", err)
 	}
 
-	ui.Info("Committing...")
+	spinner.Update("Committing...")
 	cmd = exec.Command("git", "commit", "-m", message)
 	cmd.Dir = sourcePath
 	if err := cmd.Run(); err != nil {
+		spinner.Fail("Failed to commit")
 		return fmt.Errorf("failed to commit: %w", err)
 	}
 
@@ -95,16 +97,16 @@ func stageAndCommit(sourcePath, message string) error {
 }
 
 // gitPush pushes to remote
-func gitPush(sourcePath string) error {
-	ui.Info("Pushing to remote...")
+func gitPush(sourcePath string, spinner *ui.Spinner) error {
+	spinner.Update("Pushing to remote...")
 	cmd := exec.Command("git", "push")
 	cmd.Dir = sourcePath
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		fmt.Println()
-		ui.Error("Push failed - remote may have newer changes")
-		ui.Info("  Run: skillshare pull --remote")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		spinner.Fail("Push failed")
+		fmt.Println(string(output))
+		ui.Info("  Remote may have newer changes")
+		ui.Info("  Run: skillshare pull")
 		ui.Info("  Then: skillshare push")
 		return fmt.Errorf("push failed")
 	}
@@ -121,17 +123,21 @@ func cmdPush(args []string) error {
 
 	ui.Header("Pushing to remote")
 
-	if err := checkGitRepo(cfg.Source); err != nil {
+	spinner := ui.StartSpinner("Checking repository...")
+
+	if err := checkGitRepo(cfg.Source, spinner); err != nil {
 		return nil // Error already displayed
 	}
 
 	changes, err := getGitChanges(cfg.Source)
 	if err != nil {
+		spinner.Fail("Failed to check git status")
 		return err
 	}
 	hasChanges := changes != ""
 
 	if opts.dryRun {
+		spinner.Stop()
 		ui.Warning("[dry-run] No changes will be made")
 		fmt.Println()
 		if hasChanges {
@@ -149,18 +155,15 @@ func cmdPush(args []string) error {
 	}
 
 	if hasChanges {
-		if err := stageAndCommit(cfg.Source, opts.message); err != nil {
+		if err := stageAndCommit(cfg.Source, opts.message, spinner); err != nil {
 			return err
 		}
-	} else {
-		ui.Info("No changes to commit")
 	}
 
-	if err := gitPush(cfg.Source); err != nil {
+	if err := gitPush(cfg.Source, spinner); err != nil {
 		return nil // Error already displayed
 	}
 
-	fmt.Println()
-	ui.Success("Pushed to remote")
+	spinner.Success("Push complete")
 	return nil
 }

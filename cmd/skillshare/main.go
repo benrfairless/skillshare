@@ -23,6 +23,7 @@ var commands = map[string]func([]string) error{
 	"diff":      cmdDiff,
 	"backup":    cmdBackup,
 	"restore":   cmdRestore,
+	"collect":   cmdCollect,
 	"pull":      cmdPull,
 	"push":      cmdPush,
 	"doctor":    cmdDoctor,
@@ -153,7 +154,7 @@ func printUsage() {
 
 	// Sync & Backup
 	fmt.Println("SYNC & BACKUP")
-	cmd("pull", "[target]", "Pull local skills from target(s) to source")
+	cmd("collect", "[target]", "Collect local skills from target(s) to source")
 	cmd("backup", "", "Create backup of target(s)")
 	cmd("restore", "<target>", "Restore target from latest backup")
 	fmt.Println()
@@ -161,7 +162,7 @@ func printUsage() {
 	// Git Remote
 	fmt.Println("GIT REMOTE")
 	cmd("push", "", "Commit and push source to git remote")
-	cmd("pull", "--remote", "Pull from git remote and sync to targets")
+	cmd("pull", "", "Pull from git remote and sync to targets")
 	fmt.Println()
 
 	// Utilities
@@ -173,11 +174,13 @@ func printUsage() {
 
 	// Examples
 	fmt.Println("EXAMPLES")
-	fmt.Println(g + "  skillshare init --source ~/.skills")
-	fmt.Println("  skillshare new my-skill")
-	fmt.Println("  skillshare install github.com/user/skill-repo")
-	fmt.Println("  skillshare target add claude ~/.claude/skills")
-	fmt.Println("  skillshare sync" + r)
+	fmt.Println(g + "  skillshare status                                   # Check current state")
+	fmt.Println("  skillshare sync --dry-run                           # Preview before sync")
+	fmt.Println("  skillshare collect claude                           # Import local skills")
+	fmt.Println("  skillshare push -m \"Add new skill\"                  # Push to remote")
+	fmt.Println("  skillshare pull                                     # Pull from remote")
+	fmt.Println("  skillshare install github.com/team/skills --track   # Team repo")
+	fmt.Println("  skillshare update --all                             # Update all repos" + r)
 }
 
 // cleanupOldBinary removes leftover .old files from Windows self-upgrade.

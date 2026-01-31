@@ -70,7 +70,7 @@ skillshare push -m "Add new pdf skill"
 ### Machine B: Pull and Sync
 
 ```bash
-skillshare pull --remote
+skillshare pull
 ```
 
 That's it. Your skills are now synced across machines.
@@ -108,13 +108,13 @@ skillshare push -m "Add pdf"     # Custom message
 Pull remote changes and sync to all targets.
 
 ```bash
-skillshare pull --remote
+skillshare pull
 ```
 
 **What happens:**
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│ skillshare pull --remote                                        │
+│ skillshare pull                                                 │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -187,26 +187,26 @@ skillshare sync
 
 ```
 $ skillshare push
-Error: remote has changes. Run 'skillshare pull --remote' first.
+Error: remote has changes. Run 'skillshare pull' first.
 ```
 
 **Solution:**
 ```bash
-skillshare pull --remote   # Get remote changes first
-skillshare push            # Now push works
+skillshare pull   # Get remote changes first
+skillshare push   # Now push works
 ```
 
 ### Pull Fails (Local Uncommitted Changes)
 
 ```
-$ skillshare pull --remote
+$ skillshare pull
 Error: local has uncommitted changes. Run 'skillshare push' first.
 ```
 
 **Solution:**
 ```bash
 skillshare push -m "Save local changes"
-skillshare pull --remote
+skillshare pull
 ```
 
 ### Merge Conflicts
