@@ -138,12 +138,23 @@ skillshare diff claude       # Specific target
 ### Example Output
 
 ```
-Diff: source ↔ claude
+claude
 ─────────────────────────────────────────
-  + my-new-skill      (in source, not in target)
-  - old-skill         (in target, not in source)
-  ~ modified-skill    (different content)
+  + my-new-skill       missing
+  ~ local-copy-skill   local copy (sync --force to replace)
+  - local-only-skill   local only
+
+Run 'sync' to add missing, 'sync --force' to replace local copies
+Run 'pull claude' to import local-only skills to source
 ```
+
+### Symbols
+
+| Symbol | Meaning | Action |
+|--------|---------|--------|
+| `+` | In source, missing in target | `sync` will add |
+| `~` | Both have it, but target is a local copy (not symlink) | `sync --force` to replace with symlink |
+| `-` | Only in target, not in source | `pull` to import to source |
 
 ---
 

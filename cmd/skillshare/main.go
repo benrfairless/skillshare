@@ -154,9 +154,14 @@ func printUsage() {
 	// Sync & Backup
 	fmt.Println("SYNC & BACKUP")
 	cmd("pull", "[target]", "Pull local skills from target(s) to source")
-	cmd("push", "", "Commit and push skills to git remote")
 	cmd("backup", "", "Create backup of target(s)")
 	cmd("restore", "<target>", "Restore target from latest backup")
+	fmt.Println()
+
+	// Git Remote
+	fmt.Println("GIT REMOTE")
+	cmd("push", "", "Commit and push source to git remote")
+	cmd("pull", "--remote", "Pull from git remote and sync to targets")
 	fmt.Println()
 
 	// Utilities

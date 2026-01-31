@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"skillshare/internal/config"
+	"skillshare/internal/sync"
 	"skillshare/internal/ui"
 	"skillshare/internal/utils"
 )
@@ -28,8 +29,17 @@ func cmdDiff(args []string) error {
 		return err
 	}
 
-	// Get source skills
-	sourceSkills := getSourceSkills(cfg.Source)
+	// Use same discovery as sync to get proper skill names (including tracked repo skills)
+	discovered, err := sync.DiscoverSourceSkills(cfg.Source)
+	if err != nil {
+		return fmt.Errorf("failed to discover skills: %w", err)
+	}
+
+	// Build map of flat names (what gets synced to targets)
+	sourceSkills := make(map[string]bool)
+	for _, skill := range discovered {
+		sourceSkills[skill.FlatName] = true
+	}
 
 	targets := cfg.Targets
 	if targetName != "" {
@@ -47,19 +57,8 @@ func cmdDiff(args []string) error {
 	return nil
 }
 
-func getSourceSkills(source string) map[string]bool {
-	sourceSkills := make(map[string]bool)
-	entries, _ := os.ReadDir(source)
-	for _, e := range entries {
-		if e.IsDir() && !utils.IsHidden(e.Name()) {
-			sourceSkills[e.Name()] = true
-		}
-	}
-	return sourceSkills
-}
-
 func showTargetDiff(name string, target config.TargetConfig, source string, sourceSkills map[string]bool) {
-	ui.Header(fmt.Sprintf("Diff: %s", name))
+	ui.Header(name)
 
 	// Check if target is a symlink (symlink mode)
 	targetInfo, err := os.Lstat(target.Path)
@@ -74,7 +73,7 @@ func showTargetDiff(name string, target config.TargetConfig, source string, sour
 	}
 
 	// Merge mode - check individual skills
-	showMergeDiff(target.Path, source, sourceSkills)
+	showMergeDiff(name, target.Path, source, sourceSkills)
 }
 
 func showSymlinkDiff(targetPath, source string) {
@@ -88,7 +87,7 @@ func showSymlinkDiff(targetPath, source string) {
 	}
 }
 
-func showMergeDiff(targetPath, source string, sourceSkills map[string]bool) {
+func showMergeDiff(targetName, targetPath, source string, sourceSkills map[string]bool) {
 	targetSkills := make(map[string]bool)
 	targetSymlinks := make(map[string]bool)
 	entries, err := os.ReadDir(targetPath)
@@ -109,29 +108,38 @@ func showMergeDiff(targetPath, source string, sourceSkills map[string]bool) {
 		targetSkills[e.Name()] = true
 	}
 
-	// Compare
-	hasChanges := false
+	// Compare and count
+	var syncCount, localCount int
 
 	// Skills only in source (not synced)
 	for skill := range sourceSkills {
 		if !targetSkills[skill] {
-			ui.DiffItem("add", skill, "(in source, not in target)")
-			hasChanges = true
+			ui.DiffItem("add", skill, "missing")
+			syncCount++
 		} else if !targetSymlinks[skill] {
-			ui.DiffItem("modify", skill, "(local copy, not linked)")
-			hasChanges = true
+			ui.DiffItem("modify", skill, "local copy (sync --force to replace)")
+			syncCount++
 		}
 	}
 
 	// Skills only in target (local only)
 	for skill := range targetSkills {
 		if !sourceSkills[skill] && !targetSymlinks[skill] {
-			ui.DiffItem("remove", skill, "(local only, not in source)")
-			hasChanges = true
+			ui.DiffItem("remove", skill, "local only")
+			localCount++
 		}
 	}
 
-	if !hasChanges {
-		ui.Success("Fully synced (merge mode)")
+	// Show action hints
+	if syncCount == 0 && localCount == 0 {
+		ui.Success("Fully synced")
+	} else {
+		fmt.Println()
+		if syncCount > 0 {
+			ui.Info("Run 'sync' to add missing, 'sync --force' to replace local copies")
+		}
+		if localCount > 0 {
+			ui.Info("Run 'pull %s' to import local-only skills to source", targetName)
+		}
 	}
 }

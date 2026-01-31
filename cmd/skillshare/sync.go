@@ -103,14 +103,14 @@ func syncTarget(name string, target config.TargetConfig, cfg *config.Config, dry
 	}
 
 	if mode == "merge" {
-		return syncMergeMode(name, target, cfg.Source, dryRun)
+		return syncMergeMode(name, target, cfg.Source, dryRun, force)
 	}
 
 	return syncSymlinkMode(name, target, cfg.Source, dryRun, force)
 }
 
-func syncMergeMode(name string, target config.TargetConfig, source string, dryRun bool) error {
-	result, err := sync.SyncTargetMerge(name, target, source, dryRun)
+func syncMergeMode(name string, target config.TargetConfig, source string, dryRun, force bool) error {
+	result, err := sync.SyncTargetMerge(name, target, source, dryRun, force)
 	if err != nil {
 		return err
 	}

@@ -321,7 +321,8 @@ type MergeResult struct {
 // SyncTargetMerge performs merge mode sync - creates symlinks for each skill individually
 // while preserving target-specific skills.
 // Supports nested skills: source path "personal/writing/email" becomes target symlink "personal__writing__email"
-func SyncTargetMerge(name string, target config.TargetConfig, sourcePath string, dryRun bool) (*MergeResult, error) {
+// If force is true, local copies will be replaced with symlinks.
+func SyncTargetMerge(name string, target config.TargetConfig, sourcePath string, dryRun, force bool) (*MergeResult, error) {
 	result := &MergeResult{}
 
 	// Check if target is currently a symlink (symlink mode) - need to convert to merge mode
@@ -381,8 +382,24 @@ func SyncTargetMerge(name string, target config.TargetConfig, sourcePath string,
 				}
 				result.Updated = append(result.Updated, skill.FlatName)
 			} else {
-				// It's a real directory - skip (preserve local skill)
-				result.Skipped = append(result.Skipped, skill.FlatName)
+				// It's a real directory
+				if force {
+					// Force: replace local copy with symlink
+					if dryRun {
+						fmt.Printf("[dry-run] Would replace local copy: %s\n", skill.FlatName)
+					} else {
+						if err := os.RemoveAll(targetSkillPath); err != nil {
+							return nil, fmt.Errorf("failed to remove local copy %s: %w", skill.FlatName, err)
+						}
+						if err := createLink(targetSkillPath, skill.SourcePath); err != nil {
+							return nil, fmt.Errorf("failed to create link for %s: %w", skill.FlatName, err)
+						}
+					}
+					result.Updated = append(result.Updated, skill.FlatName)
+				} else {
+					// Preserve local skill
+					result.Skipped = append(result.Skipped, skill.FlatName)
+				}
 			}
 		} else if os.IsNotExist(err) {
 			// Doesn't exist - create link
