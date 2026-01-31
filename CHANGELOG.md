@@ -41,7 +41,7 @@ skillshare collect claude
 skillshare pull
 ```
 
-## [0.7.0] - 2026-01-20
+## [0.7.0] - 2026-01-31
 
 ### Added
 - Full Windows support (NTFS junctions, zip downloads, self-upgrade)
@@ -51,7 +51,7 @@ skillshare pull
 ### Changed
 - Windows uses NTFS junctions instead of symlinks (no admin required)
 
-## [0.6.0] - 2026-01-15
+## [0.6.0] - 2026-01-20
 
 ### Added
 - Team Edition with tracked repositories
@@ -59,7 +59,7 @@ skillshare pull
 - `update` command for tracked repos
 - Nested skill support with `__` separator
 
-## [0.5.0] - 2026-01-10
+## [0.5.0] - 2026-01-16
 
 ### Added
 - `new` command to create skills with template
@@ -69,7 +69,7 @@ skillshare pull
 ### Changed
 - Improved sync output with detailed statistics
 
-## [0.4.0] - 2026-01-05
+## [0.4.0] - 2026-01-16
 
 ### Added
 - `diff` command to show differences
@@ -79,20 +79,20 @@ skillshare pull
 ### Changed
 - Default sync mode changed to `merge`
 
-## [0.3.0] - 2025-12-20
+## [0.3.0] - 2026-01-15
 
 ### Added
 - `push` and `pull --remote` for cross-machine sync
 - Git integration in `init` command
 
-## [0.2.0] - 2025-12-15
+## [0.2.0] - 2026-01-14
 
 ### Added
 - `install` and `uninstall` commands
 - Support for git repo installation
 - `target add` and `target remove` commands
 
-## [0.1.0] - 2025-12-10
+## [0.1.0] - 2026-01-14
 
 ### Added
 - Initial release

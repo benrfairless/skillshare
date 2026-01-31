@@ -34,7 +34,12 @@
 </p>
 
 > [!NOTE]
-> **[What's New in 0.8.0](https://github.com/runkids/skillshare/releases/tag/v0.8.0)**: Command rename: `pull <target>` → `collect <target>`, `pull --remote` → `pull`. Clearer command symmetry. [Previous: Windows support → v0.7.0](https://github.com/runkids/skillshare/releases/tag/v0.7.0)
+> **Recent Updates**
+> | Version | Highlights |
+> |---------|------------|
+> | [0.8.0](https://github.com/runkids/skillshare/releases/tag/v0.8.0) | `pull` → `collect` rename, clearer command symmetry, refactoring |
+> | [0.7.0](https://github.com/runkids/skillshare/releases/tag/v0.7.0) | Windows support, GitHub skill search |
+> | [0.6.0](https://github.com/runkids/skillshare/releases/tag/v0.6.0) | Team Edition with tracked repos |
 
 ## Why skillshare?
 
