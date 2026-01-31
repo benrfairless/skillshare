@@ -100,48 +100,53 @@ func targetAdd(args []string) error {
 	return nil
 }
 
-func targetRemove(args []string) error {
-	// Check for --all flag
-	removeAll := false
-	dryRun := false
-	var name string
+// targetRemoveOptions holds parsed options for target remove
+type targetRemoveOptions struct {
+	name      string
+	removeAll bool
+	dryRun    bool
+}
+
+// parseTargetRemoveArgs parses target remove arguments
+func parseTargetRemoveArgs(args []string) (*targetRemoveOptions, error) {
+	opts := &targetRemoveOptions{}
+
 	for _, arg := range args {
 		switch arg {
 		case "--all", "-a":
-			removeAll = true
+			opts.removeAll = true
 		case "--dry-run", "-n":
-			dryRun = true
+			opts.dryRun = true
 		default:
-			name = arg
+			opts.name = arg
 		}
 	}
 
-	if !removeAll && name == "" {
-		return fmt.Errorf("usage: skillshare target remove <name> or --all")
+	if !opts.removeAll && opts.name == "" {
+		return nil, fmt.Errorf("usage: skillshare target remove <name> or --all")
 	}
 
-	cfg, err := config.Load()
-	if err != nil {
-		return err
-	}
+	return opts, nil
+}
 
-	var toRemove []string
-	if removeAll {
+// resolveTargetsToRemove determines which targets to remove
+func resolveTargetsToRemove(cfg *config.Config, opts *targetRemoveOptions) ([]string, error) {
+	if opts.removeAll {
+		var toRemove []string
 		for n := range cfg.Targets {
 			toRemove = append(toRemove, n)
 		}
-	} else {
-		if _, exists := cfg.Targets[name]; !exists {
-			return fmt.Errorf("target '%s' not found", name)
-		}
-		toRemove = []string{name}
+		return toRemove, nil
 	}
 
-	if dryRun {
-		return targetRemoveDryRun(cfg, toRemove)
+	if _, exists := cfg.Targets[opts.name]; !exists {
+		return nil, fmt.Errorf("target '%s' not found", opts.name)
 	}
+	return []string{opts.name}, nil
+}
 
-	// Backup before removing
+// backupTargets creates backups for targets before removal
+func backupTargets(cfg *config.Config, toRemove []string) {
 	ui.Header("Backing up before unlink")
 	for _, targetName := range toRemove {
 		target := cfg.Targets[targetName]
@@ -152,44 +157,63 @@ func targetRemove(args []string) error {
 			ui.Success("%s -> %s", targetName, backupPath)
 		}
 	}
+}
+
+// unlinkTarget unlinks a single target
+func unlinkTarget(targetName string, target config.TargetConfig, sourcePath string) error {
+	info, err := os.Lstat(target.Path)
+	if err != nil {
+		return nil // Target doesn't exist, OK to remove from config
+	}
+
+	if info.Mode()&os.ModeSymlink != 0 {
+		if err := unlinkSymlinkMode(target.Path, sourcePath); err != nil {
+			return err
+		}
+		ui.Success("%s: unlinked and restored", targetName)
+	} else if info.IsDir() {
+		if err := unlinkMergeMode(target.Path, sourcePath); err != nil {
+			return err
+		}
+		ui.Success("%s: skill symlinks removed", targetName)
+	}
+
+	return nil
+}
+
+func targetRemove(args []string) error {
+	opts, err := parseTargetRemoveArgs(args)
+	if err != nil {
+		return err
+	}
+
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+
+	toRemove, err := resolveTargetsToRemove(cfg, opts)
+	if err != nil {
+		return err
+	}
+
+	if opts.dryRun {
+		return targetRemoveDryRun(cfg, toRemove)
+	}
+
+	backupTargets(cfg, toRemove)
 
 	ui.Header("Unlinking targets")
 	for _, targetName := range toRemove {
 		target := cfg.Targets[targetName]
-
-		// Check if it's a symlink (symlink mode) or has symlinked skills (merge mode)
-		info, err := os.Lstat(target.Path)
-		if err != nil {
-			// Target doesn't exist, just remove from config
-			delete(cfg.Targets, targetName)
-			ui.Success("%s: removed from config", targetName)
+		if err := unlinkTarget(targetName, target, cfg.Source); err != nil {
+			ui.Error("%s: %v", targetName, err)
 			continue
 		}
-
-		if info.Mode()&os.ModeSymlink != 0 {
-			// Symlink mode: remove symlink and copy source contents
-			if err := unlinkSymlinkMode(target.Path, cfg.Source); err != nil {
-				ui.Error("%s: %v", targetName, err)
-				continue
-			}
-			ui.Success("%s: unlinked and restored", targetName)
-		} else if info.IsDir() {
-			// Merge mode: remove individual skill symlinks
-			if err := unlinkMergeMode(target.Path, cfg.Source); err != nil {
-				ui.Error("%s: %v", targetName, err)
-				continue
-			}
-			ui.Success("%s: skill symlinks removed", targetName)
-		}
-
 		delete(cfg.Targets, targetName)
 	}
 
-	if err := cfg.Save(); err != nil {
-		return err
-	}
-
-	return nil
+	return cfg.Save()
 }
 
 func targetRemoveDryRun(cfg *config.Config, toRemove []string) error {

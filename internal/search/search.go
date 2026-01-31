@@ -76,24 +76,44 @@ type gitHubContentResponse struct {
 
 // Search searches GitHub for skills matching the query
 func Search(query string, limit int) ([]SearchResult, error) {
+	limit = normalizeLimit(limit)
+
+	searchResp, err := fetchCodeSearchResults(query)
+	if err != nil {
+		return nil, err
+	}
+
+	results := processSearchItems(searchResp.Items)
+	enrichWithStars(results)
+	sortByStars(results)
+
+	if len(results) > limit {
+		results = results[:limit]
+	}
+
+	enrichWithDescriptions(results)
+
+	return results, nil
+}
+
+// normalizeLimit ensures limit is within valid range
+func normalizeLimit(limit int) int {
 	if limit <= 0 {
-		limit = 20
+		return 20
 	}
 	if limit > 100 {
-		limit = 100
+		return 100
 	}
+	return limit
+}
 
-	// Build search query: find SKILL.md files containing the keyword
-	// filename:SKILL.md matches files named SKILL.md
+// fetchCodeSearchResults fetches results from GitHub code search API
+func fetchCodeSearchResults(query string) (*gitHubSearchResponse, error) {
 	searchQuery := fmt.Sprintf("filename:SKILL.md %s", query)
-
-	// Fetch more results than requested, then sort by stars and return top N
-	fetchLimit := 100 // GitHub API max per page
-
 	apiURL := fmt.Sprintf(
 		"https://api.github.com/search/code?q=%s&per_page=%d",
 		url.QueryEscape(searchQuery),
-		fetchLimit,
+		100, // GitHub API max per page
 	)
 
 	req, err := newGitHubRequest(apiURL)
@@ -108,12 +128,10 @@ func Search(query string, limit int) ([]SearchResult, error) {
 	}
 	defer resp.Body.Close()
 
-	// Check for rate limiting
 	if err := checkRateLimit(resp); err != nil {
 		return nil, err
 	}
 
-	// Code Search API requires authentication
 	if resp.StatusCode == 401 {
 		return nil, &AuthRequiredError{}
 	}
@@ -127,68 +145,71 @@ func Search(query string, limit int) ([]SearchResult, error) {
 		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
 
-	// Deduplicate by repository path (same directory)
+	return &searchResp, nil
+}
+
+// processSearchItems converts raw GitHub items to SearchResults with deduplication
+func processSearchItems(items []gitHubCodeItem) []SearchResult {
 	seen := make(map[string]bool)
 	var results []SearchResult
 
-	for _, item := range searchResp.Items {
-		// Skip non-exact SKILL.md matches (e.g., agent-skill.md, skill.md)
-		if item.Name != "SKILL.md" {
-			continue
+	for _, item := range items {
+		result, ok := convertToSearchResult(item, seen)
+		if ok {
+			results = append(results, result)
 		}
-
-		// Skip forked repositories (usually duplicates)
-		if item.Repository.Fork {
-			continue
-		}
-
-		// Get directory path (remove SKILL.md from path)
-		dirPath := strings.TrimSuffix(item.Path, "/SKILL.md")
-		dirPath = strings.TrimSuffix(dirPath, "SKILL.md")
-
-		// Build unique key for deduplication
-		key := item.Repository.FullName + "/" + dirPath
-		if seen[key] {
-			continue
-		}
-		seen[key] = true
-
-		// Parse owner/repo from full_name
-		parts := strings.SplitN(item.Repository.FullName, "/", 2)
-		if len(parts) != 2 {
-			continue
-		}
-		owner, repo := parts[0], parts[1]
-
-		// Determine skill name (last directory segment or repo name if root)
-		name := repo
-		if dirPath != "" && dirPath != "." {
-			name = lastPathSegment(dirPath)
-		}
-
-		// Build installable source
-		source := item.Repository.FullName
-		if dirPath != "" && dirPath != "." {
-			source = item.Repository.FullName + "/" + dirPath
-		}
-
-		result := SearchResult{
-			Name:   name,
-			Source: source,
-			Stars:  item.Repository.StargazersCount,
-			Owner:  owner,
-			Repo:   repo,
-			Path:   dirPath,
-		}
-
-		results = append(results, result)
 	}
 
-	// Fetch star counts for unique repos (Code Search API doesn't include this)
-	// Limit to first 30 unique repos to avoid rate limits and speed up results
+	return results
+}
+
+// convertToSearchResult converts a single GitHub item to SearchResult
+func convertToSearchResult(item gitHubCodeItem, seen map[string]bool) (SearchResult, bool) {
+	if item.Name != "SKILL.md" || item.Repository.Fork {
+		return SearchResult{}, false
+	}
+
+	dirPath := strings.TrimSuffix(item.Path, "/SKILL.md")
+	dirPath = strings.TrimSuffix(dirPath, "SKILL.md")
+
+	key := item.Repository.FullName + "/" + dirPath
+	if seen[key] {
+		return SearchResult{}, false
+	}
+	seen[key] = true
+
+	parts := strings.SplitN(item.Repository.FullName, "/", 2)
+	if len(parts) != 2 {
+		return SearchResult{}, false
+	}
+	owner, repo := parts[0], parts[1]
+
+	name := repo
+	if dirPath != "" && dirPath != "." {
+		name = lastPathSegment(dirPath)
+	}
+
+	source := item.Repository.FullName
+	if dirPath != "" && dirPath != "." {
+		source = item.Repository.FullName + "/" + dirPath
+	}
+
+	return SearchResult{
+		Name:   name,
+		Source: source,
+		Stars:  item.Repository.StargazersCount,
+		Owner:  owner,
+		Repo:   repo,
+		Path:   dirPath,
+	}, true
+}
+
+// enrichWithStars fetches and updates star counts for results
+func enrichWithStars(results []SearchResult) {
 	repoStars := make(map[string]int)
 	repoCount := 0
-	maxRepoFetch := 30
+	const maxRepoFetch = 30
+
 	for _, r := range results {
 		if repoCount >= maxRepoFetch {
 			break
@@ -202,37 +223,34 @@ func Search(query string, limit int) ([]SearchResult, error) {
 		}
 	}
 
-	// Update results with fetched star counts
 	for i := range results {
 		repoKey := results[i].Owner + "/" + results[i].Repo
 		if stars, exists := repoStars[repoKey]; exists {
 			results[i].Stars = stars
 		}
 	}
+}
 
-	// Sort by stars (descending) - show popular skills first
+// sortByStars sorts results by star count descending
+func sortByStars(results []SearchResult) {
 	sort.Slice(results, func(i, j int) bool {
 		return results[i].Stars > results[j].Stars
 	})
+}
 
-	// Limit results to requested amount
-	if len(results) > limit {
-		results = results[:limit]
-	}
-
-	// Fetch descriptions for top results (limited to avoid rate limits)
+// enrichWithDescriptions fetches descriptions for top results
+func enrichWithDescriptions(results []SearchResult) {
 	descLimit := len(results)
 	if descLimit > 10 {
 		descLimit = 10
 	}
+
 	for i := 0; i < descLimit; i++ {
 		desc, err := fetchSkillDescription(results[i].Owner, results[i].Repo, results[i].Path)
 		if err == nil && desc != "" {
 			results[i].Description = desc
 		}
 	}
-
-	return results, nil
 }
 
 // fetchRepoStars fetches the star count for a repository

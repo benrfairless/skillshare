@@ -17,138 +17,156 @@ import (
 const skillshareSkillSource = "github.com/runkids/skillshare/skills/skillshare"
 const skillshareSkillURL = "https://raw.githubusercontent.com/runkids/skillshare/main/skills/skillshare/SKILL.md"
 
-func cmdInit(args []string) error {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return fmt.Errorf("cannot determine home directory: %w", err)
-	}
-	sourcePath := "" // Will be determined
-	remoteURL := ""
-	dryRun := false
+// initOptions holds all parsed arguments for the init command
+type initOptions struct {
+	sourcePath string
+	remoteURL  string
+	dryRun     bool
+	copyFrom   string
+	noCopy     bool
+	targetsArg string
+	allTargets bool
+	noTargets  bool
+	initGit    bool
+	noGit      bool
+	gitFlagSet bool
+	discover   bool
+	selectArg  string
+}
 
-	// Non-interactive flags
-	copyFrom := ""      // --copy-from: copy from specified name or path
-	noCopy := false     // --no-copy: start fresh
-	targetsArg := ""    // --targets: comma-separated list
-	allTargets := false // --all-targets: add all detected
-	noTargets := false  // --no-targets: skip targets
-	initGit := false    // --git: initialize git (set by flag)
-	noGit := false      // --no-git: skip git
-	gitFlagSet := false // track if --git was explicitly set
-	discover := false   // --discover: detect and add new agents to existing config
-	selectArg := ""     // --select: comma-separated list for --discover mode
+// parseInitArgs parses command line arguments into initOptions
+func parseInitArgs(args []string) (*initOptions, error) {
+	opts := &initOptions{}
 
-	// Parse args
 	for i := 0; i < len(args); i++ {
 		switch args[i] {
 		case "--source", "-s":
 			if i+1 >= len(args) {
-				return fmt.Errorf("--source requires a path argument")
+				return nil, fmt.Errorf("--source requires a path argument")
 			}
-			sourcePath = args[i+1]
+			opts.sourcePath = args[i+1]
 			i++
 		case "--remote":
 			if i+1 >= len(args) {
-				return fmt.Errorf("--remote requires a URL argument")
+				return nil, fmt.Errorf("--remote requires a URL argument")
 			}
-			remoteURL = args[i+1]
+			opts.remoteURL = args[i+1]
 			i++
 		case "--dry-run", "-n":
-			dryRun = true
+			opts.dryRun = true
 		case "--copy-from", "-c":
 			if i+1 >= len(args) {
-				return fmt.Errorf("--copy-from requires a name or path argument")
+				return nil, fmt.Errorf("--copy-from requires a name or path argument")
 			}
-			copyFrom = args[i+1]
+			opts.copyFrom = args[i+1]
 			i++
 		case "--no-copy":
-			noCopy = true
+			opts.noCopy = true
 		case "--targets", "-t":
 			if i+1 >= len(args) {
-				return fmt.Errorf("--targets requires a comma-separated list")
+				return nil, fmt.Errorf("--targets requires a comma-separated list")
 			}
-			targetsArg = args[i+1]
+			opts.targetsArg = args[i+1]
 			i++
 		case "--all-targets":
-			allTargets = true
+			opts.allTargets = true
 		case "--no-targets":
-			noTargets = true
+			opts.noTargets = true
 		case "--git":
-			initGit = true
-			gitFlagSet = true
+			opts.initGit = true
+			opts.gitFlagSet = true
 		case "--no-git":
-			noGit = true
+			opts.noGit = true
 		case "--discover", "-d":
-			discover = true
+			opts.discover = true
 		case "--select":
 			if i+1 >= len(args) {
-				return fmt.Errorf("--select requires a comma-separated list")
+				return nil, fmt.Errorf("--select requires a comma-separated list")
 			}
-			selectArg = args[i+1]
+			opts.selectArg = args[i+1]
 			i++
 		}
 	}
 
-	// Validate mutual exclusions
-	if copyFrom != "" && noCopy {
+	return opts, nil
+}
+
+// validateInitOptions validates mutual exclusions and adjusts defaults
+func validateInitOptions(opts *initOptions, home string) error {
+	if opts.copyFrom != "" && opts.noCopy {
 		return fmt.Errorf("--copy-from and --no-copy are mutually exclusive")
 	}
+
 	exclusiveCount := 0
-	if targetsArg != "" {
+	if opts.targetsArg != "" {
 		exclusiveCount++
 	}
-	if allTargets {
+	if opts.allTargets {
 		exclusiveCount++
 	}
-	if noTargets {
+	if opts.noTargets {
 		exclusiveCount++
 	}
 	if exclusiveCount > 1 {
 		return fmt.Errorf("--targets, --all-targets, and --no-targets are mutually exclusive")
 	}
-	if gitFlagSet && noGit {
+
+	if opts.gitFlagSet && opts.noGit {
 		return fmt.Errorf("--git and --no-git are mutually exclusive")
 	}
-	if selectArg != "" && !discover {
+
+	if opts.selectArg != "" && !opts.discover {
 		return fmt.Errorf("--select requires --discover flag")
 	}
 
 	// --remote implies --git
-	if remoteURL != "" && !noGit {
-		initGit = true
+	if opts.remoteURL != "" && !opts.noGit {
+		opts.initGit = true
 	}
 
 	// Expand ~ in path
-	if utils.HasTildePrefix(sourcePath) {
-		sourcePath = filepath.Join(home, sourcePath[1:])
+	if utils.HasTildePrefix(opts.sourcePath) {
+		opts.sourcePath = filepath.Join(home, opts.sourcePath[1:])
 	}
 
-	// Check if already initialized
-	if _, err := os.Stat(config.ConfigPath()); err == nil {
-		// If --remote provided, just add the remote to existing setup
-		if remoteURL != "" {
-			cfg, err := config.Load()
-			if err != nil {
-				return err
-			}
-			setupGitRemote(cfg.Source, remoteURL, dryRun)
-			return nil
-		}
-		// If --discover provided, detect and add new agents
-		if discover {
-			cfg, err := config.Load()
-			if err != nil {
-				return err
-			}
-			return reinitWithDiscover(cfg, selectArg, dryRun)
-		}
-		return fmt.Errorf("already initialized. Run 'skillshare init --discover' to add new agents")
+	return nil
+}
+
+// handleExistingInit handles init when config already exists
+func handleExistingInit(opts *initOptions) (bool, error) {
+	if _, err := os.Stat(config.ConfigPath()); os.IsNotExist(err) {
+		return false, nil // Not initialized, continue with fresh init
 	}
 
+	// If --remote provided, just add the remote to existing setup
+	if opts.remoteURL != "" {
+		cfg, err := config.Load()
+		if err != nil {
+			return true, err
+		}
+		setupGitRemote(cfg.Source, opts.remoteURL, opts.dryRun)
+		return true, nil
+	}
+
+	// If --discover provided, detect and add new agents
+	if opts.discover {
+		cfg, err := config.Load()
+		if err != nil {
+			return true, err
+		}
+		return true, reinitWithDiscover(cfg, opts.selectArg, opts.dryRun)
+	}
+
+	return true, fmt.Errorf("already initialized. Run 'skillshare init --discover' to add new agents")
+}
+
+// performFreshInit performs a fresh initialization
+func performFreshInit(opts *initOptions, home string) error {
 	// Detect existing CLI skills directories
 	detected := detectCLIDirectories(home)
 
 	// Default source path (same location as config)
+	sourcePath := opts.sourcePath
 	if sourcePath == "" {
 		sourcePath = filepath.Join(home, ".config", "skillshare", "skills")
 	}
@@ -162,30 +180,24 @@ func cmdInit(args []string) error {
 	}
 
 	// Determine copy source (non-interactive or prompt)
-	copyFromPath, copyFromName := promptCopyFrom(withSkills, copyFrom, noCopy, home)
+	copyFromPath, copyFromName := promptCopyFrom(withSkills, opts.copyFrom, opts.noCopy, home)
 
-	if dryRun {
+	if opts.dryRun {
 		ui.Warning("Dry run mode - no changes will be made")
 	}
 
 	// Create source directory if needed
-	if dryRun {
-		if _, err := os.Stat(sourcePath); err == nil {
-			ui.Info("Source directory exists: %s", sourcePath)
-		} else {
-			ui.Info("Would create source directory: %s", sourcePath)
-		}
-	} else if err := os.MkdirAll(sourcePath, 0755); err != nil {
-		return fmt.Errorf("failed to create source directory: %w", err)
+	if err := createSourceDir(sourcePath, opts.dryRun); err != nil {
+		return err
 	}
 
 	// Copy skills from selected directory
 	if copyFromPath != "" {
-		copySkillsToSource(copyFromPath, sourcePath, dryRun)
+		copySkillsToSource(copyFromPath, sourcePath, opts.dryRun)
 	}
 
 	// Build targets list
-	targets := buildTargetsList(detected, copyFromPath, copyFromName, targetsArg, allTargets, noTargets)
+	targets := buildTargetsList(detected, copyFromPath, copyFromName, opts.targetsArg, opts.allTargets, opts.noTargets)
 
 	// Create config
 	cfg := &config.Config{
@@ -198,26 +210,51 @@ func cmdInit(args []string) error {
 		},
 	}
 
-	if dryRun {
+	if opts.dryRun {
 		summarizeInitConfig(cfg)
 	} else if err := cfg.Save(); err != nil {
 		return err
 	}
 
 	// Initialize git in source directory for safety
-	initGitIfNeeded(sourcePath, dryRun, initGit, noGit)
+	initGitIfNeeded(sourcePath, opts.dryRun, opts.initGit, opts.noGit)
 
 	// Set up git remote for cross-machine sync
-	setupGitRemote(sourcePath, remoteURL, dryRun)
+	setupGitRemote(sourcePath, opts.remoteURL, opts.dryRun)
 
 	// Create default skillshare skill
-	createDefaultSkill(sourcePath, dryRun)
+	createDefaultSkill(sourcePath, opts.dryRun)
 
+	// Print completion message
+	printInitSuccess(sourcePath, opts.dryRun)
+
+	return nil
+}
+
+// createSourceDir creates the source directory
+func createSourceDir(sourcePath string, dryRun bool) error {
+	if dryRun {
+		if _, err := os.Stat(sourcePath); err == nil {
+			ui.Info("Source directory exists: %s", sourcePath)
+		} else {
+			ui.Info("Would create source directory: %s", sourcePath)
+		}
+		return nil
+	}
+
+	if err := os.MkdirAll(sourcePath, 0755); err != nil {
+		return fmt.Errorf("failed to create source directory: %w", err)
+	}
+	return nil
+}
+
+// printInitSuccess prints the success message after initialization
+func printInitSuccess(sourcePath string, dryRun bool) {
 	if dryRun {
 		ui.Header("Dry run complete")
 		ui.Info("Would write config: %s", config.ConfigPath())
 		ui.Info("Run 'skillshare init' to apply these changes")
-		return nil
+		return
 	}
 
 	ui.Header("Initialized successfully")
@@ -230,8 +267,29 @@ func cmdInit(args []string) error {
 	ui.Info("Pro tip: Let AI manage your skills!")
 	fmt.Println("  \"Pull my new skill from Claude and sync to all targets\"")
 	fmt.Println("  \"Show me skillshare status\"")
+}
 
-	return nil
+func cmdInit(args []string) error {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("cannot determine home directory: %w", err)
+	}
+
+	opts, err := parseInitArgs(args)
+	if err != nil {
+		return err
+	}
+
+	if err := validateInitOptions(opts, home); err != nil {
+		return err
+	}
+
+	handled, err := handleExistingInit(opts)
+	if handled {
+		return err
+	}
+
+	return performFreshInit(opts, home)
 }
 
 type detectedDir struct {
@@ -764,44 +822,22 @@ type agentInfo struct {
 	description string
 }
 
-// reinitWithDiscover detects new agents and allows user to add them to existing config
-func reinitWithDiscover(existingCfg *config.Config, selectArg string, dryRun bool) error {
-	ui.Header("Discovering new agents")
-
-	// Get all default targets
+// detectNewAgents finds agents not already in the config
+func detectNewAgents(existingCfg *config.Config) []agentInfo {
 	defaultTargets := config.DefaultTargets()
-
-	// Find agents not already in config
 	var newAgents []agentInfo
+
 	for name, target := range defaultTargets {
-		// Skip if already in config
 		if _, exists := existingCfg.Targets[name]; exists {
 			continue
 		}
 
-		// Check if the agent's parent directory exists (CLI is installed)
 		parent := filepath.Dir(target.Path)
 		if _, err := os.Stat(parent); err != nil {
-			continue // CLI not installed, skip
+			continue
 		}
 
-		// Check skills directory status
-		status := "(not initialized)"
-		if info, err := os.Stat(target.Path); err == nil && info.IsDir() {
-			entries, _ := os.ReadDir(target.Path)
-			skillCount := 0
-			for _, e := range entries {
-				if e.IsDir() && !utils.IsHidden(e.Name()) {
-					skillCount++
-				}
-			}
-			if skillCount > 0 {
-				status = fmt.Sprintf("(%d skills)", skillCount)
-			} else {
-				status = "(empty)"
-			}
-		}
-
+		status := getAgentStatus(target.Path)
 		newAgents = append(newAgents, agentInfo{
 			name:        name,
 			path:        target.Path,
@@ -809,19 +845,32 @@ func reinitWithDiscover(existingCfg *config.Config, selectArg string, dryRun boo
 		})
 	}
 
-	if len(newAgents) == 0 {
-		ui.Info("No new agents detected")
-		return nil
+	return newAgents
+}
+
+// getAgentStatus returns the status description for an agent path
+func getAgentStatus(path string) string {
+	info, err := os.Stat(path)
+	if err != nil || !info.IsDir() {
+		return "(not initialized)"
 	}
 
-	ui.Success("Found %d new agent(s)", len(newAgents))
-
-	// Non-interactive mode with --select
-	if selectArg != "" {
-		return addSelectedAgentsByName(existingCfg, newAgents, selectArg, dryRun)
+	entries, _ := os.ReadDir(path)
+	skillCount := 0
+	for _, e := range entries {
+		if e.IsDir() && !utils.IsHidden(e.Name()) {
+			skillCount++
+		}
 	}
 
-	// Interactive mode: use survey.MultiSelect
+	if skillCount > 0 {
+		return fmt.Sprintf("(%d skills)", skillCount)
+	}
+	return "(empty)"
+}
+
+// promptAgentSelection shows interactive selection and returns selected agent names
+func promptAgentSelection(newAgents []agentInfo) ([]string, error) {
 	options := make([]string, len(newAgents))
 	for i, agent := range newAgents {
 		options[i] = fmt.Sprintf("%-12s %s %s", agent.name, agent.path, agent.description)
@@ -836,46 +885,77 @@ func reinitWithDiscover(existingCfg *config.Config, selectArg string, dryRun boo
 	}
 
 	if err := survey.AskOne(prompt, &selectedIndices); err != nil {
-		return nil // User cancelled (Ctrl+C)
+		return nil, nil
 	}
 
-	if len(selectedIndices) == 0 {
-		ui.Info("No agents selected")
-		return nil
-	}
-
-	// Map indices back to agent names
 	var selectedNames []string
 	for _, idx := range selectedIndices {
 		selectedNames = append(selectedNames, newAgents[idx].name)
 	}
 
-	// Add selected agents to config
-	for _, name := range selectedNames {
+	return selectedNames, nil
+}
+
+// saveAddedAgents adds agents to config and saves
+func saveAddedAgents(cfg *config.Config, names []string, dryRun bool) error {
+	defaultTargets := config.DefaultTargets()
+
+	for _, name := range names {
 		if target, ok := defaultTargets[name]; ok {
-			existingCfg.Targets[name] = target
+			cfg.Targets[name] = target
 		}
 	}
 
 	if dryRun {
-		ui.Warning("Dry run - would add %d agent(s) to config", len(selectedNames))
-		for _, name := range selectedNames {
+		ui.Warning("Dry run - would add %d agent(s) to config", len(names))
+		for _, name := range names {
 			fmt.Printf("  + %s\n", name)
 		}
 		return nil
 	}
 
-	if err := existingCfg.Save(); err != nil {
+	if err := cfg.Save(); err != nil {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 
-	ui.Success("Added %d agent(s) to config", len(selectedNames))
-	for _, name := range selectedNames {
+	ui.Success("Added %d agent(s) to config", len(names))
+	for _, name := range names {
 		fmt.Printf("  + %s\n", name)
 	}
 	ui.Info("Run 'skillshare sync' to sync skills to new targets")
 
 	return nil
+}
+
+// reinitWithDiscover detects new agents and allows user to add them to existing config
+func reinitWithDiscover(existingCfg *config.Config, selectArg string, dryRun bool) error {
+	ui.Header("Discovering new agents")
+
+	newAgents := detectNewAgents(existingCfg)
+	if len(newAgents) == 0 {
+		ui.Info("No new agents detected")
+		return nil
+	}
+
+	ui.Success("Found %d new agent(s)", len(newAgents))
+
+	// Non-interactive mode with --select
+	if selectArg != "" {
+		return addSelectedAgentsByName(existingCfg, newAgents, selectArg, dryRun)
+	}
+
+	// Interactive mode
+	selectedNames, err := promptAgentSelection(newAgents)
+	if err != nil {
+		return err
+	}
+
+	if len(selectedNames) == 0 {
+		ui.Info("No agents selected")
+		return nil
+	}
+
+	return saveAddedAgents(existingCfg, selectedNames, dryRun)
 }
 
 // addSelectedAgentsByName adds agents specified by --select flag (non-interactive)

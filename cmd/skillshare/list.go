@@ -12,40 +12,25 @@ import (
 	"skillshare/internal/utils"
 )
 
-func cmdList(args []string) error {
-	var verbose bool
-
-	// Parse arguments
+// parseListArgs parses list command arguments
+func parseListArgs(args []string) (verbose bool, showHelp bool, err error) {
 	for _, arg := range args {
 		switch arg {
 		case "--verbose", "-v":
 			verbose = true
 		case "--help", "-h":
-			printListHelp()
-			return nil
+			return false, true, nil
 		default:
 			if strings.HasPrefix(arg, "-") {
-				return fmt.Errorf("unknown option: %s", arg)
+				return false, false, fmt.Errorf("unknown option: %s", arg)
 			}
 		}
 	}
+	return verbose, false, nil
+}
 
-	// Load config
-	cfg, err := config.Load()
-	if err != nil {
-		return err
-	}
-
-	// Discover all skills recursively
-	discovered, err := sync.DiscoverSourceSkills(cfg.Source)
-	if err != nil {
-		return fmt.Errorf("cannot discover skills: %w", err)
-	}
-
-	// Get tracked repos
-	trackedRepos, _ := install.GetTrackedRepos(cfg.Source)
-
-	// Build skill entries with metadata
+// buildSkillEntries builds skill entries from discovered skills
+func buildSkillEntries(discovered []sync.DiscoveredSkill) []skillEntry {
 	var skills []skillEntry
 	for _, d := range discovered {
 		entry := skillEntry{
@@ -53,7 +38,6 @@ func cmdList(args []string) error {
 			IsNested: d.IsInRepo || utils.HasNestedSeparator(d.FlatName),
 		}
 
-		// Determine repo name if in tracked repo
 		if d.IsInRepo {
 			parts := strings.SplitN(d.RelPath, "/", 2)
 			if len(parts) > 0 {
@@ -61,7 +45,6 @@ func cmdList(args []string) error {
 			}
 		}
 
-		// Read metadata if available
 		if meta, err := install.ReadMeta(d.SourcePath); err == nil && meta != nil {
 			entry.Source = meta.Source
 			entry.Type = meta.Type
@@ -70,6 +53,104 @@ func cmdList(args []string) error {
 
 		skills = append(skills, entry)
 	}
+	return skills
+}
+
+// displaySkillsVerbose displays skills in verbose mode
+func displaySkillsVerbose(skills []skillEntry) {
+	for _, s := range skills {
+		fmt.Printf("  %s%s%s\n", ui.Cyan, s.Name, ui.Reset)
+		if s.RepoName != "" {
+			fmt.Printf("    %sTracked repo:%s %s\n", ui.Gray, ui.Reset, s.RepoName)
+		}
+		if s.Source != "" {
+			fmt.Printf("    %sSource:%s      %s\n", ui.Gray, ui.Reset, s.Source)
+			fmt.Printf("    %sType:%s        %s\n", ui.Gray, ui.Reset, s.Type)
+			fmt.Printf("    %sInstalled:%s   %s\n", ui.Gray, ui.Reset, s.InstalledAt)
+		} else {
+			fmt.Printf("    %sSource:%s      (local - no metadata)\n", ui.Gray, ui.Reset)
+		}
+		fmt.Println()
+	}
+}
+
+// displaySkillsCompact displays skills in compact mode
+func displaySkillsCompact(skills []skillEntry) {
+	maxNameLen := 0
+	for _, s := range skills {
+		if len(s.Name) > maxNameLen {
+			maxNameLen = len(s.Name)
+		}
+	}
+
+	for _, s := range skills {
+		suffix := getSkillSuffix(s)
+		format := fmt.Sprintf("  %s→%s %%-%ds  %s%%s%s\n", ui.Cyan, ui.Reset, maxNameLen, ui.Gray, ui.Reset)
+		fmt.Printf(format, s.Name, suffix)
+	}
+}
+
+// getSkillSuffix returns the display suffix for a skill
+func getSkillSuffix(s skillEntry) string {
+	if s.RepoName != "" {
+		return fmt.Sprintf("tracked: %s", s.RepoName)
+	}
+	if s.Source != "" {
+		return abbreviateSource(s.Source)
+	}
+	return "local"
+}
+
+// displayTrackedRepos displays the tracked repositories section
+func displayTrackedRepos(trackedRepos []string, discovered []sync.DiscoveredSkill, sourcePath string) {
+	fmt.Println()
+	ui.Header("Tracked repositories")
+
+	for _, repoName := range trackedRepos {
+		repoPath := filepath.Join(sourcePath, repoName)
+		skillCount := countRepoSkills(repoName, discovered)
+
+		if isDirty, _ := isRepoDirty(repoPath); isDirty {
+			ui.ListItem("warning", repoName, fmt.Sprintf("%d skills, has changes", skillCount))
+		} else {
+			ui.ListItem("success", repoName, fmt.Sprintf("%d skills, up-to-date", skillCount))
+		}
+	}
+}
+
+// countRepoSkills counts skills in a tracked repo
+func countRepoSkills(repoName string, discovered []sync.DiscoveredSkill) int {
+	count := 0
+	for _, d := range discovered {
+		if d.IsInRepo && strings.HasPrefix(d.RelPath, repoName+"/") {
+			count++
+		}
+	}
+	return count
+}
+
+func cmdList(args []string) error {
+	verbose, showHelp, err := parseListArgs(args)
+	if showHelp {
+		printListHelp()
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+
+	discovered, err := sync.DiscoverSourceSkills(cfg.Source)
+	if err != nil {
+		return fmt.Errorf("cannot discover skills: %w", err)
+	}
+
+	trackedRepos, _ := install.GetTrackedRepos(cfg.Source)
+	skills := buildSkillEntries(discovered)
 
 	if len(skills) == 0 && len(trackedRepos) == 0 {
 		ui.Info("No skills installed")
@@ -77,73 +158,17 @@ func cmdList(args []string) error {
 		return nil
 	}
 
-	// Display skills
 	if len(skills) > 0 {
 		ui.Header("Installed skills")
-
-		// Calculate max name length for alignment (compact mode only)
-		maxNameLen := 0
-		if !verbose {
-			for _, s := range skills {
-				if len(s.Name) > maxNameLen {
-					maxNameLen = len(s.Name)
-				}
-			}
-		}
-
-		for _, s := range skills {
-			if verbose {
-				// Verbose mode: show full details
-				fmt.Printf("  %s%s%s\n", ui.Cyan, s.Name, ui.Reset)
-				if s.RepoName != "" {
-					fmt.Printf("    %sTracked repo:%s %s\n", ui.Gray, ui.Reset, s.RepoName)
-				}
-				if s.Source != "" {
-					fmt.Printf("    %sSource:%s      %s\n", ui.Gray, ui.Reset, s.Source)
-					fmt.Printf("    %sType:%s        %s\n", ui.Gray, ui.Reset, s.Type)
-					fmt.Printf("    %sInstalled:%s   %s\n", ui.Gray, ui.Reset, s.InstalledAt)
-				} else {
-					fmt.Printf("    %sSource:%s      (local - no metadata)\n", ui.Gray, ui.Reset)
-				}
-				fmt.Println()
-			} else {
-				// Compact mode: aligned skill name + source info
-				var suffix string
-				if s.RepoName != "" {
-					suffix = fmt.Sprintf("tracked: %s", s.RepoName)
-				} else if s.Source != "" {
-					suffix = abbreviateSource(s.Source)
-				} else {
-					suffix = "local"
-				}
-				// Use dynamic width formatting with icon
-				format := fmt.Sprintf("  %s→%s %%-%ds  %s%%s%s\n", ui.Cyan, ui.Reset, maxNameLen, ui.Gray, ui.Reset)
-				fmt.Printf(format, s.Name, suffix)
-			}
+		if verbose {
+			displaySkillsVerbose(skills)
+		} else {
+			displaySkillsCompact(skills)
 		}
 	}
 
-	// Display tracked repos section
 	if len(trackedRepos) > 0 {
-		fmt.Println()
-		ui.Header("Tracked repositories")
-
-		for _, repoName := range trackedRepos {
-			repoPath := filepath.Join(cfg.Source, repoName)
-			// Count skills in this repo
-			skillCount := 0
-			for _, d := range discovered {
-				if d.IsInRepo && strings.HasPrefix(d.RelPath, repoName+"/") {
-					skillCount++
-				}
-			}
-			// Check git status and display with appropriate icon
-			if isDirty, _ := isRepoDirty(repoPath); isDirty {
-				ui.ListItem("warning", repoName, fmt.Sprintf("%d skills, has changes", skillCount))
-			} else {
-				ui.ListItem("success", repoName, fmt.Sprintf("%d skills, up-to-date", skillCount))
-			}
-		}
+		displayTrackedRepos(trackedRepos, discovered, cfg.Source)
 	}
 
 	if !verbose && len(skills) > 0 {

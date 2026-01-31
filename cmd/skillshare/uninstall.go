@@ -13,157 +13,216 @@ import (
 	"skillshare/internal/ui"
 )
 
-func cmdUninstall(args []string) error {
-	var skillName string
-	var force, dryRun bool
+// uninstallOptions holds parsed arguments for uninstall command
+type uninstallOptions struct {
+	skillName string
+	force     bool
+	dryRun    bool
+}
 
-	// Parse arguments
-	i := 0
-	for i < len(args) {
-		arg := args[i]
+// uninstallTarget holds resolved target information
+type uninstallTarget struct {
+	name          string
+	path          string
+	isTrackedRepo bool
+}
+
+// parseUninstallArgs parses command line arguments
+func parseUninstallArgs(args []string) (*uninstallOptions, bool, error) {
+	opts := &uninstallOptions{}
+
+	for _, arg := range args {
 		switch {
 		case arg == "--force" || arg == "-f":
-			force = true
+			opts.force = true
 		case arg == "--dry-run" || arg == "-n":
-			dryRun = true
+			opts.dryRun = true
 		case arg == "--help" || arg == "-h":
-			printUninstallHelp()
-			return nil
+			return nil, true, nil // showHelp = true
 		case strings.HasPrefix(arg, "-"):
-			return fmt.Errorf("unknown option: %s", arg)
+			return nil, false, fmt.Errorf("unknown option: %s", arg)
 		default:
-			if skillName != "" {
-				return fmt.Errorf("unexpected argument: %s", arg)
+			if opts.skillName != "" {
+				return nil, false, fmt.Errorf("unexpected argument: %s", arg)
 			}
-			skillName = arg
+			opts.skillName = arg
 		}
-		i++
 	}
 
-	if skillName == "" {
-		printUninstallHelp()
-		return fmt.Errorf("skill name is required")
+	if opts.skillName == "" {
+		return nil, true, fmt.Errorf("skill name is required")
 	}
 
-	// Load config
-	cfg, err := config.Load()
-	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
-	}
+	return opts, false, nil
+}
 
+// resolveUninstallTarget resolves skill name to path and checks existence
+func resolveUninstallTarget(skillName string, cfg *config.Config) (*uninstallTarget, error) {
 	// Normalize _ prefix for tracked repos
-	// Check if name already has prefix, or if the path (with or without prefix) is a git repo
 	if !strings.HasPrefix(skillName, "_") {
-		// Try with _ prefix first
 		prefixedPath := filepath.Join(cfg.Source, "_"+skillName)
 		if install.IsGitRepo(prefixedPath) {
 			skillName = "_" + skillName
 		}
 	}
 
-	// Check if skill exists
 	skillPath := filepath.Join(cfg.Source, skillName)
 	info, err := os.Stat(skillPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return fmt.Errorf("skill '%s' not found in source", skillName)
+			return nil, fmt.Errorf("skill '%s' not found in source", skillName)
 		}
-		return fmt.Errorf("cannot access skill: %w", err)
+		return nil, fmt.Errorf("cannot access skill: %w", err)
 	}
 	if !info.IsDir() {
-		return fmt.Errorf("'%s' is not a directory", skillName)
+		return nil, fmt.Errorf("'%s' is not a directory", skillName)
 	}
 
-	// Detect if this is a tracked repo
-	isTrackedRepo := install.IsGitRepo(skillPath)
+	return &uninstallTarget{
+		name:          skillName,
+		path:          skillPath,
+		isTrackedRepo: install.IsGitRepo(skillPath),
+	}, nil
+}
 
-	// Display info
-	if isTrackedRepo {
+// displayUninstallInfo shows information about the skill to be uninstalled
+func displayUninstallInfo(target *uninstallTarget) {
+	if target.isTrackedRepo {
 		ui.Header("Uninstalling tracked repository")
+		ui.Info("Type: tracked repository")
 	} else {
 		ui.Header("Uninstalling skill")
-	}
-	ui.Info("Name: %s", skillName)
-	ui.Info("Path: %s", skillPath)
-	if isTrackedRepo {
-		ui.Info("Type: tracked repository")
-	}
-
-	// Show metadata if available (for regular skills)
-	if !isTrackedRepo {
-		if meta, err := install.ReadMeta(skillPath); err == nil && meta != nil {
+		if meta, err := install.ReadMeta(target.path); err == nil && meta != nil {
 			ui.Info("Source: %s", meta.Source)
 			ui.Info("Installed: %s", meta.InstalledAt.Format("2006-01-02 15:04"))
 		}
 	}
+	ui.Info("Name: %s", target.name)
+	ui.Info("Path: %s", target.path)
 	fmt.Println()
+}
 
-	// For tracked repos, check for uncommitted changes
-	if isTrackedRepo && !dryRun {
-		isDirty, dirtyErr := isRepoDirty(skillPath)
-		if dirtyErr != nil {
-			ui.Warning("Could not check git status: %v", dirtyErr)
-		} else if isDirty {
-			if !force {
-				ui.Error("Repository has uncommitted changes!")
-				ui.Info("Use --force to uninstall anyway, or commit/stash your changes first")
-				return fmt.Errorf("uncommitted changes detected, use --force to override")
-			}
-			ui.Warning("Repository has uncommitted changes (proceeding with --force)")
-		}
-	}
-
-	if dryRun {
-		ui.Warning("[dry-run] would remove %s", skillPath)
-		if isTrackedRepo {
-			ui.Warning("[dry-run] would remove %s from .gitignore", skillName)
-		}
+// checkTrackedRepoStatus checks for uncommitted changes in tracked repos
+func checkTrackedRepoStatus(target *uninstallTarget, force bool) error {
+	if !target.isTrackedRepo {
 		return nil
 	}
 
-	// Confirm unless --force
+	isDirty, err := isRepoDirty(target.path)
+	if err != nil {
+		ui.Warning("Could not check git status: %v", err)
+		return nil
+	}
+
+	if !isDirty {
+		return nil
+	}
+
 	if !force {
-		prompt := "Are you sure you want to uninstall this skill?"
-		if isTrackedRepo {
-			prompt = "Are you sure you want to uninstall this tracked repository?"
-		}
-		fmt.Printf("%s [y/N]: ", prompt)
-		reader := bufio.NewReader(os.Stdin)
-		input, err := reader.ReadString('\n')
-		if err != nil {
-			return err
-		}
-		input = strings.TrimSpace(strings.ToLower(input))
-		if input != "y" && input != "yes" {
-			ui.Info("Cancelled")
-			return nil
-		}
+		ui.Error("Repository has uncommitted changes!")
+		ui.Info("Use --force to uninstall anyway, or commit/stash your changes first")
+		return fmt.Errorf("uncommitted changes detected, use --force to override")
 	}
 
+	ui.Warning("Repository has uncommitted changes (proceeding with --force)")
+	return nil
+}
+
+// confirmUninstall prompts user for confirmation
+func confirmUninstall(target *uninstallTarget) (bool, error) {
+	prompt := "Are you sure you want to uninstall this skill?"
+	if target.isTrackedRepo {
+		prompt = "Are you sure you want to uninstall this tracked repository?"
+	}
+
+	fmt.Printf("%s [y/N]: ", prompt)
+	reader := bufio.NewReader(os.Stdin)
+	input, err := reader.ReadString('\n')
+	if err != nil {
+		return false, err
+	}
+
+	input = strings.TrimSpace(strings.ToLower(input))
+	return input == "y" || input == "yes", nil
+}
+
+// performUninstall removes the skill and cleans up
+func performUninstall(target *uninstallTarget, cfg *config.Config) error {
 	// For tracked repos, clean up .gitignore
-	if isTrackedRepo {
-		removed, gitignoreErr := install.RemoveFromGitIgnore(cfg.Source, skillName)
-		if gitignoreErr != nil {
-			ui.Warning("Could not update .gitignore: %v", gitignoreErr)
+	if target.isTrackedRepo {
+		if removed, err := install.RemoveFromGitIgnore(cfg.Source, target.name); err != nil {
+			ui.Warning("Could not update .gitignore: %v", err)
 		} else if removed {
-			ui.Info("Removed %s from .gitignore", skillName)
+			ui.Info("Removed %s from .gitignore", target.name)
 		}
 	}
 
-	// Remove the skill/repo
-	if err := os.RemoveAll(skillPath); err != nil {
+	if err := os.RemoveAll(target.path); err != nil {
 		return fmt.Errorf("failed to remove: %w", err)
 	}
 
-	if isTrackedRepo {
-		ui.Success("Uninstalled tracked repository: %s", skillName)
+	if target.isTrackedRepo {
+		ui.Success("Uninstalled tracked repository: %s", target.name)
 	} else {
-		ui.Success("Uninstalled: %s", skillName)
+		ui.Success("Uninstalled: %s", target.name)
 	}
 	fmt.Println()
 	ui.Info("Run 'skillshare sync' to update all targets")
 
 	return nil
+}
+
+func cmdUninstall(args []string) error {
+	opts, showHelp, err := parseUninstallArgs(args)
+	if showHelp {
+		printUninstallHelp()
+		return err
+	}
+	if err != nil {
+		return err
+	}
+
+	cfg, err := config.Load()
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+
+	target, err := resolveUninstallTarget(opts.skillName, cfg)
+	if err != nil {
+		return err
+	}
+
+	displayUninstallInfo(target)
+
+	// Check for uncommitted changes (skip in dry-run)
+	if !opts.dryRun {
+		if err := checkTrackedRepoStatus(target, opts.force); err != nil {
+			return err
+		}
+	}
+
+	// Handle dry-run
+	if opts.dryRun {
+		ui.Warning("[dry-run] would remove %s", target.path)
+		if target.isTrackedRepo {
+			ui.Warning("[dry-run] would remove %s from .gitignore", target.name)
+		}
+		return nil
+	}
+
+	// Confirm unless --force
+	if !opts.force {
+		confirmed, err := confirmUninstall(target)
+		if err != nil {
+			return err
+		}
+		if !confirmed {
+			ui.Info("Cancelled")
+			return nil
+		}
+	}
+
+	return performUninstall(target, cfg)
 }
 
 // isRepoDirty checks if a git repository has uncommitted changes

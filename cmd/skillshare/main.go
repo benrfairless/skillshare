@@ -12,6 +12,27 @@ import (
 
 var version = "dev"
 
+// commands maps command names to their handler functions
+var commands = map[string]func([]string) error{
+	"init":      cmdInit,
+	"install":   cmdInstall,
+	"uninstall": cmdUninstall,
+	"list":      cmdList,
+	"sync":      cmdSync,
+	"status":    cmdStatus,
+	"diff":      cmdDiff,
+	"backup":    cmdBackup,
+	"restore":   cmdRestore,
+	"pull":      cmdPull,
+	"push":      cmdPush,
+	"doctor":    cmdDoctor,
+	"target":    cmdTarget,
+	"upgrade":   cmdUpgrade,
+	"update":    cmdUpdate,
+	"new":       cmdNew,
+	"search":    cmdSearch,
+}
+
 func main() {
 	// Clean up any leftover .old files from Windows self-upgrade
 	cleanupOldBinary()
@@ -27,53 +48,25 @@ func main() {
 	cmd := os.Args[1]
 	args := os.Args[2:]
 
-	var err error
+	// Handle special commands (no error return)
 	switch cmd {
-	case "init":
-		err = cmdInit(args)
-	case "install":
-		err = cmdInstall(args)
-	case "uninstall":
-		err = cmdUninstall(args)
-	case "list":
-		err = cmdList(args)
-	case "sync":
-		err = cmdSync(args)
-	case "status":
-		err = cmdStatus(args)
-	case "diff":
-		err = cmdDiff(args)
-	case "backup":
-		err = cmdBackup(args)
-	case "restore":
-		err = cmdRestore(args)
-	case "pull":
-		err = cmdPull(args)
-	case "push":
-		err = cmdPush(args)
-	case "doctor":
-		err = cmdDoctor(args)
-	case "target":
-		err = cmdTarget(args)
-	case "upgrade":
-		err = cmdUpgrade(args)
-	case "update":
-		err = cmdUpdate(args)
-	case "new":
-		err = cmdNew(args)
-	case "search":
-		err = cmdSearch(args)
 	case "version", "-v", "--version":
 		ui.Logo(version)
+		return
 	case "help", "-h", "--help":
 		printUsage()
-	default:
+		return
+	}
+
+	// Look up and execute command
+	handler, ok := commands[cmd]
+	if !ok {
 		ui.Error("Unknown command: %s", cmd)
 		printUsage()
 		os.Exit(1)
 	}
 
-	if err != nil {
+	if err := handler(args); err != nil {
 		ui.Error("%v", err)
 		os.Exit(1)
 	}

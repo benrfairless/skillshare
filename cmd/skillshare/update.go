@@ -59,6 +59,80 @@ func cmdUpdate(args []string) error {
 	return updateSkillOrRepo(cfg, name, dryRun, force)
 }
 
+// updateResult tracks the result of an update operation
+type updateResult struct {
+	updated int
+	skipped int
+}
+
+// updateTrackedRepoQuick updates a single tracked repo (for --all mode)
+func updateTrackedRepoQuick(repo, repoPath, progress string, dryRun, force bool) (updated bool, err error) {
+	// Check for uncommitted changes
+	if isDirty, _ := git.IsDirty(repoPath); isDirty {
+		if !force {
+			ui.ListItem("warning", repo, "has uncommitted changes (use --force)")
+			return false, nil
+		}
+		if !dryRun {
+			if err := git.Restore(repoPath); err != nil {
+				ui.ListItem("warning", repo, fmt.Sprintf("failed to discard changes: %v", err))
+				return false, nil
+			}
+		}
+	}
+
+	if dryRun {
+		ui.ListItem("info", repo, "[dry-run] would git pull")
+		return false, nil
+	}
+
+	spinner := ui.StartSpinner(fmt.Sprintf("%s Updating %s...", progress, repo))
+
+	var info *git.UpdateInfo
+	if force {
+		info, err = git.ForcePull(repoPath)
+	} else {
+		info, err = git.Pull(repoPath)
+	}
+	if err != nil {
+		spinner.Warn(fmt.Sprintf("%s %v", repo, err))
+		return false, nil
+	}
+
+	if info.UpToDate {
+		spinner.Success(fmt.Sprintf("%s Already up to date", repo))
+	} else {
+		spinner.Success(fmt.Sprintf("%s %d commits, %d files", repo, len(info.Commits), info.Stats.FilesChanged))
+	}
+	return true, nil
+}
+
+// updateSkillFromMeta updates a skill using its metadata
+func updateSkillFromMeta(skill, skillPath, progress string, dryRun bool) (updated bool) {
+	if dryRun {
+		ui.ListItem("info", skill, "[dry-run] would reinstall from source")
+		return false
+	}
+
+	spinner := ui.StartSpinner(fmt.Sprintf("%s Updating %s...", progress, skill))
+
+	meta, _ := install.ReadMeta(skillPath)
+	source, err := install.ParseSource(meta.Source)
+	if err != nil {
+		spinner.Warn(fmt.Sprintf("%s invalid source: %v", skill, err))
+		return false
+	}
+
+	opts := install.InstallOptions{Force: true, Update: true}
+	if _, err = install.Install(source, skillPath, opts); err != nil {
+		spinner.Warn(fmt.Sprintf("%s %v", skill, err))
+		return false
+	}
+
+	spinner.Success(fmt.Sprintf("%s Reinstalled from source", skill))
+	return true
+}
+
 func updateAllTrackedRepos(cfg *config.Config, dryRun, force bool) error {
 	repos, err := install.GetTrackedRepos(cfg.Source)
 	if err != nil {
@@ -76,114 +150,44 @@ func updateAllTrackedRepos(cfg *config.Config, dryRun, force bool) error {
 		return nil
 	}
 
-	// Header
 	total := len(repos) + len(skills)
 	ui.HeaderBox("skillshare update --all",
 		fmt.Sprintf("Updating %d tracked repos + %d skills", len(repos), len(skills)))
 	fmt.Println()
 
-	var updated, skipped int
+	var result updateResult
 
 	// Update tracked repos
 	for i, repo := range repos {
 		repoPath := filepath.Join(cfg.Source, repo)
 		progress := fmt.Sprintf("[%d/%d]", i+1, total)
-
-		// Check for uncommitted changes
-		if isDirty, _ := git.IsDirty(repoPath); isDirty {
-			if !force {
-				ui.ListItem("warning", repo, "has uncommitted changes (use --force)")
-				skipped++
-				continue
-			}
-			if !dryRun {
-				if err := git.Restore(repoPath); err != nil {
-					ui.ListItem("warning", repo, fmt.Sprintf("failed to discard changes: %v", err))
-					skipped++
-					continue
-				}
-			}
-		}
-
-		if dryRun {
-			ui.ListItem("info", repo, "[dry-run] would git pull")
-			continue
-		}
-
-		spinner := ui.StartSpinner(fmt.Sprintf("%s Updating %s...", progress, repo))
-
-		// Pull (use ForcePull if --force to handle force push)
-		var info *git.UpdateInfo
-		if force {
-			info, err = git.ForcePull(repoPath)
+		if updated, _ := updateTrackedRepoQuick(repo, repoPath, progress, dryRun, force); updated {
+			result.updated++
 		} else {
-			info, err = git.Pull(repoPath)
+			result.skipped++
 		}
-		if err != nil {
-			spinner.Warn(fmt.Sprintf("%s %v", repo, err))
-			skipped++
-			continue
-		}
-
-		if info.UpToDate {
-			spinner.Success(fmt.Sprintf("%s Already up to date", repo))
-		} else {
-			detail := fmt.Sprintf("%s %d commits, %d files", repo, len(info.Commits), info.Stats.FilesChanged)
-			spinner.Success(detail)
-		}
-		updated++
 	}
 
-	// Update regular skills with metadata
-	repoCount := len(repos)
+	// Update regular skills
 	for i, skill := range skills {
 		skillPath := filepath.Join(cfg.Source, skill)
-		progress := fmt.Sprintf("[%d/%d]", repoCount+i+1, total)
-
-		if dryRun {
-			ui.ListItem("info", skill, "[dry-run] would reinstall from source")
-			continue
+		progress := fmt.Sprintf("[%d/%d]", len(repos)+i+1, total)
+		if updateSkillFromMeta(skill, skillPath, progress, dryRun) {
+			result.updated++
+		} else {
+			result.skipped++
 		}
-
-		spinner := ui.StartSpinner(fmt.Sprintf("%s Updating %s...", progress, skill))
-
-		meta, _ := install.ReadMeta(skillPath)
-		source, err := install.ParseSource(meta.Source)
-		if err != nil {
-			spinner.Warn(fmt.Sprintf("%s invalid source: %v", skill, err))
-			skipped++
-			continue
-		}
-
-		opts := install.InstallOptions{
-			Force:  true,
-			Update: true,
-		}
-
-		_, err = install.Install(source, skillPath, opts)
-		if err != nil {
-			spinner.Warn(fmt.Sprintf("%s %v", skill, err))
-			skipped++
-			continue
-		}
-
-		spinner.Success(fmt.Sprintf("%s Reinstalled from source", skill))
-		updated++
 	}
 
-	// Summary
 	if !dryRun {
 		fmt.Println()
-		ui.Box("Summary",
-			"",
+		ui.Box("Summary", "",
 			fmt.Sprintf("  Total:    %d", total),
-			fmt.Sprintf("  Updated:  %d", updated),
-			fmt.Sprintf("  Skipped:  %d", skipped),
-			"",
-		)
+			fmt.Sprintf("  Updated:  %d", result.updated),
+			fmt.Sprintf("  Skipped:  %d", result.skipped), "")
 	}
 
-	if updated > 0 {
+	if result.updated > 0 {
 		fmt.Println()
 		ui.Info("Run 'skillshare sync' to distribute changes")
 	}

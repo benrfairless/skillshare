@@ -14,6 +14,55 @@ import (
 	appversion "skillshare/internal/version"
 )
 
+// installArgs holds parsed install command arguments
+type installArgs struct {
+	sourceArg string
+	opts      install.InstallOptions
+}
+
+// parseInstallArgs parses install command arguments
+func parseInstallArgs(args []string) (*installArgs, bool, error) {
+	result := &installArgs{}
+
+	i := 0
+	for i < len(args) {
+		arg := args[i]
+		switch {
+		case arg == "--name":
+			if i+1 >= len(args) {
+				return nil, false, fmt.Errorf("--name requires a value")
+			}
+			i++
+			result.opts.Name = args[i]
+		case arg == "--force" || arg == "-f":
+			result.opts.Force = true
+		case arg == "--update" || arg == "-u":
+			result.opts.Update = true
+		case arg == "--dry-run" || arg == "-n":
+			result.opts.DryRun = true
+		case arg == "--track" || arg == "-t":
+			result.opts.Track = true
+		case arg == "--help" || arg == "-h":
+			return nil, true, nil // showHelp = true
+		case strings.HasPrefix(arg, "-"):
+			return nil, false, fmt.Errorf("unknown option: %s", arg)
+		default:
+			if result.sourceArg != "" {
+				return nil, false, fmt.Errorf("unexpected argument: %s", arg)
+			}
+			result.sourceArg = arg
+		}
+		i++
+	}
+
+	if result.sourceArg == "" {
+		return nil, true, fmt.Errorf("source is required")
+	}
+
+	return result, false, nil
+}
+
+// resolveSkillFromName resolves a skill name to source using metadata
 func resolveSkillFromName(skillName string, cfg *config.Config) (*install.Source, error) {
 	skillPath := filepath.Join(cfg.Source, skillName)
 
@@ -34,90 +83,68 @@ func resolveSkillFromName(skillName string, cfg *config.Config) (*install.Source
 	return source, nil
 }
 
-func cmdInstall(args []string) error {
-	opts := install.InstallOptions{}
-	var sourceArg string
+// resolveInstallSource parses and resolves the install source
+func resolveInstallSource(sourceArg string, opts install.InstallOptions, cfg *config.Config) (*install.Source, bool, error) {
+	source, err := install.ParseSource(sourceArg)
+	if err == nil {
+		return source, false, nil
+	}
 
-	// Parse arguments
-	i := 0
-	for i < len(args) {
-		arg := args[i]
-		switch {
-		case arg == "--name":
-			if i+1 >= len(args) {
-				return fmt.Errorf("--name requires a value")
-			}
-			i++
-			opts.Name = args[i]
-		case arg == "--force" || arg == "-f":
-			opts.Force = true
-		case arg == "--update" || arg == "-u":
-			opts.Update = true
-		case arg == "--dry-run" || arg == "-n":
-			opts.DryRun = true
-		case arg == "--track" || arg == "-t":
-			opts.Track = true
-		case arg == "--help" || arg == "-h":
-			printInstallHelp()
-			return nil
-		case strings.HasPrefix(arg, "-"):
-			return fmt.Errorf("unknown option: %s", arg)
-		default:
-			if sourceArg != "" {
-				return fmt.Errorf("unexpected argument: %s", arg)
-			}
-			sourceArg = arg
+	// Try resolving from installed skill metadata if update/force
+	if opts.Update || opts.Force {
+		resolvedSource, resolveErr := resolveSkillFromName(sourceArg, cfg)
+		if resolveErr != nil {
+			return nil, false, fmt.Errorf("invalid source: %w", err)
 		}
-		i++
+		ui.Info("Resolved '%s' from installed skill metadata", sourceArg)
+		return resolvedSource, true, nil // resolvedFromMeta = true
 	}
 
-	if sourceArg == "" {
+	return nil, false, fmt.Errorf("invalid source: %w", err)
+}
+
+// dispatchInstall routes to the appropriate install handler
+func dispatchInstall(source *install.Source, cfg *config.Config, opts install.InstallOptions) error {
+	if opts.Track {
+		return handleTrackedRepoInstall(source, cfg, opts)
+	}
+
+	if source.IsGit() {
+		if !source.HasSubdir() {
+			return handleGitDiscovery(source, cfg, opts)
+		}
+		return handleGitSubdirInstall(source, cfg, opts)
+	}
+
+	return handleDirectInstall(source, cfg, opts)
+}
+
+func cmdInstall(args []string) error {
+	parsed, showHelp, err := parseInstallArgs(args)
+	if showHelp {
 		printInstallHelp()
-		return fmt.Errorf("source is required")
+		return err
+	}
+	if err != nil {
+		return err
 	}
 
-	// Load config to get source directory
 	cfg, err := config.Load()
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	// Parse the source
-	source, err := install.ParseSource(sourceArg)
+	source, resolvedFromMeta, err := resolveInstallSource(parsed.sourceArg, parsed.opts, cfg)
 	if err != nil {
-		if opts.Update || opts.Force {
-			resolvedSource, resolveErr := resolveSkillFromName(sourceArg, cfg)
-			if resolveErr != nil {
-				return fmt.Errorf("invalid source: %w", err)
-			}
-			source = resolvedSource
-			ui.Info("Resolved '%s' from installed skill metadata", sourceArg)
-		} else {
-			return fmt.Errorf("invalid source: %w", err)
-		}
+		return err
 	}
 
-	if (opts.Update || opts.Force) && source.Raw != sourceArg {
-		return handleDirectInstall(source, cfg, opts)
+	// If resolved from metadata with update/force, go directly to install
+	if resolvedFromMeta {
+		return handleDirectInstall(source, cfg, parsed.opts)
 	}
 
-	// Handle --track mode: install entire repo as tracked repository
-	if opts.Track {
-		return handleTrackedRepoInstall(source, cfg, opts)
-	}
-
-	// Handle git sources with discovery
-	if source.IsGit() {
-		if !source.HasSubdir() {
-			// Whole repo - discover all skills
-			return handleGitDiscovery(source, cfg, opts)
-		}
-		// Subdir specified - check for multiple skills within subdir
-		return handleGitSubdirInstall(source, cfg, opts)
-	}
-
-	// Local path - direct installation
-	return handleDirectInstall(source, cfg, opts)
+	return dispatchInstall(source, cfg, parsed.opts)
 }
 
 func handleTrackedRepoInstall(source *install.Source, cfg *config.Config, opts install.InstallOptions) error {
@@ -230,7 +257,6 @@ func handleGitDiscovery(source *install.Source, cfg *config.Config, opts install
 
 	fmt.Println()
 
-	// Prompt for selection (shows skill list in multi-select)
 	selected, err := promptSkillSelection(discovery.Skills)
 	if err != nil {
 		return err
@@ -241,72 +267,13 @@ func handleGitDiscovery(source *install.Source, cfg *config.Config, opts install
 		return nil
 	}
 
-	// Install with animation
 	fmt.Println()
-
-	type installResult struct {
-		skill   install.SkillInfo
-		success bool
-		message string
-	}
-	results := make([]installResult, 0, len(selected))
-
-	installSpinner := ui.StartSpinnerWithSteps("Installing...", len(selected))
-
-	for i, skill := range selected {
-		installSpinner.NextStep(fmt.Sprintf("Installing %s...", skill.Name))
-		if i == 0 {
-			installSpinner.Update(fmt.Sprintf("Installing %s...", skill.Name))
-		}
-		destPath := filepath.Join(cfg.Source, skill.Name)
-
-		_, err := install.InstallFromDiscovery(discovery, skill, destPath, opts)
-		if err != nil {
-			results = append(results, installResult{skill: skill, success: false, message: err.Error()})
-			continue
-		}
-
-		results = append(results, installResult{skill: skill, success: true, message: "installed"})
-	}
-
-	// Count results
-	var installed, failed int
-	for _, r := range results {
-		if r.success {
-			installed++
-		} else {
-			failed++
-		}
-	}
-
-	if failed > 0 && installed == 0 {
-		installSpinner.Fail(fmt.Sprintf("Failed to install %d skill(s)", failed))
-	} else if failed > 0 {
-		installSpinner.Success(fmt.Sprintf("Installed %d, failed %d", installed, failed))
-	} else {
-		installSpinner.Success(fmt.Sprintf("Installed %d skill(s)", installed))
-	}
-
-	// Show results
-	fmt.Println()
-	for _, r := range results {
-		if r.success {
-			ui.StepDone(r.skill.Name, "installed")
-		} else {
-			ui.StepFail(r.skill.Name, r.message)
-		}
-	}
-
-	if installed > 0 {
-		fmt.Println()
-		ui.Info("Run 'skillshare sync' to distribute to all targets")
-	}
+	installSelectedSkills(selected, discovery, cfg, opts)
 
 	return nil
 }
 
 func promptSkillSelection(skills []install.SkillInfo) ([]install.SkillInfo, error) {
-	// Build options list with skill name and path
 	options := make([]string, len(skills))
 	for i, skill := range skills {
 		loc := skill.Path
@@ -316,8 +283,6 @@ func promptSkillSelection(skills []install.SkillInfo) ([]install.SkillInfo, erro
 		options[i] = fmt.Sprintf("%s  \033[90m%s\033[0m", skill.Name, loc)
 	}
 
-	// Custom survey icons for cleaner look
-	// Space to select, Enter to confirm (survey default behavior)
 	var selectedIndices []int
 	prompt := &survey.MultiSelect{
 		Message:  "Select skills to install:",
@@ -333,16 +298,79 @@ func promptSkillSelection(skills []install.SkillInfo) ([]install.SkillInfo, erro
 		icons.SelectFocus.Format = "yellow"
 	}))
 	if err != nil {
-		return nil, nil // User cancelled (Ctrl+C)
+		return nil, nil
 	}
 
-	// Map indices back to skills
 	selected := make([]install.SkillInfo, len(selectedIndices))
 	for i, idx := range selectedIndices {
 		selected[i] = skills[idx]
 	}
 
 	return selected, nil
+}
+
+// skillInstallResult holds the result of installing a single skill
+type skillInstallResult struct {
+	skill   install.SkillInfo
+	success bool
+	message string
+}
+
+// installSelectedSkills installs multiple skills with progress display
+func installSelectedSkills(selected []install.SkillInfo, discovery *install.DiscoveryResult, cfg *config.Config, opts install.InstallOptions) {
+	results := make([]skillInstallResult, 0, len(selected))
+	installSpinner := ui.StartSpinnerWithSteps("Installing...", len(selected))
+
+	for i, skill := range selected {
+		installSpinner.NextStep(fmt.Sprintf("Installing %s...", skill.Name))
+		if i == 0 {
+			installSpinner.Update(fmt.Sprintf("Installing %s...", skill.Name))
+		}
+		destPath := filepath.Join(cfg.Source, skill.Name)
+
+		_, err := install.InstallFromDiscovery(discovery, skill, destPath, opts)
+		if err != nil {
+			results = append(results, skillInstallResult{skill: skill, success: false, message: err.Error()})
+			continue
+		}
+		results = append(results, skillInstallResult{skill: skill, success: true, message: "installed"})
+	}
+
+	displayInstallResults(results, installSpinner)
+}
+
+// displayInstallResults shows the final install results
+func displayInstallResults(results []skillInstallResult, spinner *ui.Spinner) {
+	var installed, failed int
+	for _, r := range results {
+		if r.success {
+			installed++
+		} else {
+			failed++
+		}
+	}
+
+	if failed > 0 && installed == 0 {
+		spinner.Fail(fmt.Sprintf("Failed to install %d skill(s)", failed))
+	} else if failed > 0 {
+		spinner.Success(fmt.Sprintf("Installed %d, failed %d", installed, failed))
+	} else {
+		spinner.Success(fmt.Sprintf("Installed %d skill(s)", installed))
+	}
+
+	fmt.Println()
+	for _, r := range results {
+		if r.success {
+			ui.StepDone(r.skill.Name, "installed")
+		} else {
+			ui.StepFail(r.skill.Name, r.message)
+		}
+	}
+
+	if installed > 0 {
+		fmt.Println()
+		ui.Info("Run 'skillshare sync' to distribute to all targets")
+	}
 }
 
 func handleGitSubdirInstall(source *install.Source, cfg *config.Config, opts install.InstallOptions) error {
@@ -423,7 +451,6 @@ func handleGitSubdirInstall(source *install.Source, cfg *config.Config, opts ins
 
 	fmt.Println()
 
-	// Prompt for selection
 	selected, err := promptSkillSelection(discovery.Skills)
 	if err != nil {
 		return err
@@ -434,66 +461,8 @@ func handleGitSubdirInstall(source *install.Source, cfg *config.Config, opts ins
 		return nil
 	}
 
-	// Install selected skills
 	fmt.Println()
-
-	type installResult struct {
-		skill   install.SkillInfo
-		success bool
-		message string
-	}
-	results := make([]installResult, 0, len(selected))
-
-	installSpinner := ui.StartSpinnerWithSteps("Installing...", len(selected))
-
-	for i, skill := range selected {
-		installSpinner.NextStep(fmt.Sprintf("Installing %s...", skill.Name))
-		if i == 0 {
-			installSpinner.Update(fmt.Sprintf("Installing %s...", skill.Name))
-		}
-		destPath := filepath.Join(cfg.Source, skill.Name)
-
-		_, err := install.InstallFromDiscovery(discovery, skill, destPath, opts)
-		if err != nil {
-			results = append(results, installResult{skill: skill, success: false, message: err.Error()})
-			continue
-		}
-
-		results = append(results, installResult{skill: skill, success: true, message: "installed"})
-	}
-
-	// Count results
-	var installed, failed int
-	for _, r := range results {
-		if r.success {
-			installed++
-		} else {
-			failed++
-		}
-	}
-
-	if failed > 0 && installed == 0 {
-		installSpinner.Fail(fmt.Sprintf("Failed to install %d skill(s)", failed))
-	} else if failed > 0 {
-		installSpinner.Success(fmt.Sprintf("Installed %d, failed %d", installed, failed))
-	} else {
-		installSpinner.Success(fmt.Sprintf("Installed %d skill(s)", installed))
-	}
-
-	// Show results
-	fmt.Println()
-	for _, r := range results {
-		if r.success {
-			ui.StepDone(r.skill.Name, "installed")
-		} else {
-			ui.StepFail(r.skill.Name, r.message)
-		}
-	}
-
-	if installed > 0 {
-		fmt.Println()
-		ui.Info("Run 'skillshare sync' to distribute to all targets")
-	}
+	installSelectedSkills(selected, discovery, cfg, opts)
 
 	return nil
 }
