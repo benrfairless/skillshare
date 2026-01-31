@@ -2,15 +2,15 @@
 
 ## Command Overview
 
-| 操作類型 | 命令 | 方向 |
-|----------|------|------|
-| **本地同步** | `sync` / `collect` | Source ↔ Targets |
-| **遠端同步** | `push` / `pull` | Source ↔ Git Remote |
+| Type | Command | Direction |
+|------|---------|-----------|
+| **Local sync** | `sync` / `collect` | Source ↔ Targets |
+| **Remote sync** | `push` / `pull` | Source ↔ Git Remote |
 
-- `sync` = 從 Source 分發到 Targets
-- `collect` = 從 Targets 收集回 Source
-- `push` = 推送到 git 遠端
-- `pull` = 從 git 遠端拉取並同步
+- `sync` = Distribute from Source to Targets
+- `collect` = Collect from Targets back to Source
+- `push` = Push to git remote
+- `pull` = Pull from git remote and sync
 
 ## Overview
 
