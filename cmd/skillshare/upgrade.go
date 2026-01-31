@@ -305,6 +305,32 @@ func writeBinary(r io.Reader, destPath string) error {
 		return err
 	}
 
+	// On Windows, we can't directly replace a running executable.
+	// However, we CAN rename it. So we:
+	// 1. Rename current exe to .old
+	// 2. Rename new exe to the correct name
+	// 3. Try to delete .old (may fail if still running, but that's OK)
+	if runtime.GOOS == "windows" {
+		oldPath := destPath + ".old"
+		// Remove any previous .old file
+		os.Remove(oldPath)
+		// Rename running exe to .old
+		if err := os.Rename(destPath, oldPath); err != nil {
+			os.Remove(tmpPath)
+			return fmt.Errorf("failed to rename current binary: %w", err)
+		}
+		// Rename new exe to correct name
+		if err := os.Rename(tmpPath, destPath); err != nil {
+			// Try to restore
+			os.Rename(oldPath, destPath)
+			os.Remove(tmpPath)
+			return err
+		}
+		// Try to clean up old file (may fail, that's OK)
+		os.Remove(oldPath)
+		return nil
+	}
+
 	if err := os.Rename(tmpPath, destPath); err != nil {
 		os.Remove(tmpPath)
 		return err

@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"runtime"
 
 	"skillshare/internal/ui"
 	versioncheck "skillshare/internal/version"
@@ -11,6 +13,9 @@ import (
 var version = "dev"
 
 func main() {
+	// Clean up any leftover .old files from Windows self-upgrade
+	cleanupOldBinary()
+
 	// Set version for other packages to use
 	versioncheck.Version = version
 
@@ -172,4 +177,24 @@ func printUsage() {
 	fmt.Println("  skillshare install github.com/user/skill-repo")
 	fmt.Println("  skillshare target add claude ~/.claude/skills")
 	fmt.Println("  skillshare sync" + r)
+}
+
+// cleanupOldBinary removes leftover .old files from Windows self-upgrade.
+// On Windows, we rename the running exe to .old before replacing it.
+// This cleanup runs on next startup to remove those files.
+func cleanupOldBinary() {
+	if runtime.GOOS != "windows" {
+		return
+	}
+	execPath, err := os.Executable()
+	if err != nil {
+		return
+	}
+	execPath, err = filepath.EvalSymlinks(execPath)
+	if err != nil {
+		return
+	}
+	oldPath := execPath + ".old"
+	// Silently try to remove - may not exist, that's fine
+	os.Remove(oldPath)
 }
