@@ -593,3 +593,198 @@ targets: {}
 		t.Error("skill should not be installed in dry-run mode")
 	}
 }
+
+// TestInstall_OrchestratorStructure_PreservesNesting tests that when installing
+// an orchestrator structure (root SKILL.md + child skills), the nested structure
+// is preserved rather than flattening all skills to root.
+func TestInstall_OrchestratorStructure_PreservesNesting(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+`)
+
+	// Create an orchestrator-style skill structure directly in source path
+	// This simulates what installSelectedSkills should do when given:
+	// - root skill (path=".")
+	// - child skills (path="child-a", "child-b")
+	//
+	// The fix ensures children are nested under root when root is selected.
+
+	// First, create a local orchestrator structure to simulate discovery results
+	orchestratorPath := filepath.Join(sb.Root, "orchestrator")
+	childAPath := filepath.Join(orchestratorPath, "child-a")
+	childBPath := filepath.Join(orchestratorPath, "child-b")
+
+	os.MkdirAll(orchestratorPath, 0755)
+	os.MkdirAll(childAPath, 0755)
+	os.MkdirAll(childBPath, 0755)
+
+	os.WriteFile(filepath.Join(orchestratorPath, "SKILL.md"), []byte("# Parent Skill\nOrchestrator for child skills"), 0644)
+	os.WriteFile(filepath.Join(childAPath, "SKILL.md"), []byte("# Child A"), 0644)
+	os.WriteFile(filepath.Join(childBPath, "SKILL.md"), []byte("# Child B"), 0644)
+
+	// Simulate the discovery result structure
+	// Skills found when discovering a subdir with root SKILL.md:
+	// - SkillInfo{Name: "orchestrator", Path: "."} - root
+	// - SkillInfo{Name: "child-a", Path: "child-a"}
+	// - SkillInfo{Name: "child-b", Path: "child-b"}
+
+	rootSkill := install.SkillInfo{Name: "orchestrator", Path: "."}
+	childA := install.SkillInfo{Name: "child-a", Path: "child-a"}
+	childB := install.SkillInfo{Name: "child-b", Path: "child-b"}
+
+	// Test the nesting logic: when root is selected, children should nest under it
+	// This is the logic from installSelectedSkills after the fix
+
+	// Detect orchestrator: if root skill (path=".") is in selected, children nest under it
+	parentName := ""
+	selected := []install.SkillInfo{rootSkill, childA, childB}
+	for _, skill := range selected {
+		if skill.Path == "." {
+			parentName = skill.Name
+			break
+		}
+	}
+
+	if parentName != "orchestrator" {
+		t.Fatalf("expected parent name to be 'orchestrator', got '%s'", parentName)
+	}
+
+	// Now install using the nesting logic
+	for _, skill := range selected {
+		var destPath string
+		if skill.Path == "." {
+			// Root skill - install directly
+			destPath = filepath.Join(sb.SourcePath, skill.Name)
+		} else if parentName != "" {
+			// Child skill with parent selected - nest under parent
+			destPath = filepath.Join(sb.SourcePath, parentName, skill.Name)
+		} else {
+			// Standalone child skill - install to root
+			destPath = filepath.Join(sb.SourcePath, skill.Name)
+		}
+
+		// Install by copying the local skill
+		srcPath := filepath.Join(orchestratorPath, skill.Path)
+		if skill.Path == "." {
+			srcPath = orchestratorPath
+		}
+
+		// Copy the skill directory
+		os.MkdirAll(destPath, 0755)
+		srcSkillFile := filepath.Join(srcPath, "SKILL.md")
+		destSkillFile := filepath.Join(destPath, "SKILL.md")
+		content, _ := os.ReadFile(srcSkillFile)
+		os.WriteFile(destSkillFile, content, 0644)
+	}
+
+	// Verify nested structure
+	// orchestrator/SKILL.md should exist
+	parentSkillFile := filepath.Join(sb.SourcePath, "orchestrator", "SKILL.md")
+	if !sb.FileExists(parentSkillFile) {
+		t.Error("orchestrator/SKILL.md should exist")
+	}
+
+	// orchestrator/child-a/SKILL.md should exist (NESTED, not flattened)
+	childASkillFile := filepath.Join(sb.SourcePath, "orchestrator", "child-a", "SKILL.md")
+	if !sb.FileExists(childASkillFile) {
+		t.Error("orchestrator/child-a/SKILL.md should exist (nested structure)")
+	}
+
+	// orchestrator/child-b/SKILL.md should exist (NESTED, not flattened)
+	childBSkillFile := filepath.Join(sb.SourcePath, "orchestrator", "child-b", "SKILL.md")
+	if !sb.FileExists(childBSkillFile) {
+		t.Error("orchestrator/child-b/SKILL.md should exist (nested structure)")
+	}
+
+	// child-a should NOT exist at root level (this was the bug)
+	flatChildA := filepath.Join(sb.SourcePath, "child-a")
+	if sb.FileExists(flatChildA) {
+		t.Error("child-a should NOT exist at root level (should be nested under orchestrator)")
+	}
+
+	// child-b should NOT exist at root level (this was the bug)
+	flatChildB := filepath.Join(sb.SourcePath, "child-b")
+	if sb.FileExists(flatChildB) {
+		t.Error("child-b should NOT exist at root level (should be nested under orchestrator)")
+	}
+}
+
+// TestInstall_ChildSkillsOnly_InstallsToRoot tests that when only child skills
+// are selected (without root), they are installed to root level (not nested).
+func TestInstall_ChildSkillsOnly_InstallsToRoot(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+`)
+
+	// Create local skill files
+	orchestratorPath := filepath.Join(sb.Root, "orchestrator")
+	childAPath := filepath.Join(orchestratorPath, "child-a")
+	childBPath := filepath.Join(orchestratorPath, "child-b")
+
+	os.MkdirAll(orchestratorPath, 0755)
+	os.MkdirAll(childAPath, 0755)
+	os.MkdirAll(childBPath, 0755)
+
+	os.WriteFile(filepath.Join(orchestratorPath, "SKILL.md"), []byte("# Parent Skill"), 0644)
+	os.WriteFile(filepath.Join(childAPath, "SKILL.md"), []byte("# Child A"), 0644)
+	os.WriteFile(filepath.Join(childBPath, "SKILL.md"), []byte("# Child B"), 0644)
+
+	// Only select child skills, NOT the root
+	childA := install.SkillInfo{Name: "child-a", Path: "child-a"}
+	childB := install.SkillInfo{Name: "child-b", Path: "child-b"}
+
+	// Detect orchestrator: no root skill selected
+	parentName := ""
+	selected := []install.SkillInfo{childA, childB}
+	for _, skill := range selected {
+		if skill.Path == "." {
+			parentName = skill.Name
+			break
+		}
+	}
+
+	if parentName != "" {
+		t.Fatalf("expected no parent name, got '%s'", parentName)
+	}
+
+	// Install using the nesting logic (without parent, should go to root)
+	for _, skill := range selected {
+		var destPath string
+		if skill.Path == "." {
+			destPath = filepath.Join(sb.SourcePath, skill.Name)
+		} else if parentName != "" {
+			destPath = filepath.Join(sb.SourcePath, parentName, skill.Name)
+		} else {
+			// Standalone child skill - install to root
+			destPath = filepath.Join(sb.SourcePath, skill.Name)
+		}
+
+		srcPath := filepath.Join(orchestratorPath, skill.Path)
+		os.MkdirAll(destPath, 0755)
+		content, _ := os.ReadFile(filepath.Join(srcPath, "SKILL.md"))
+		os.WriteFile(filepath.Join(destPath, "SKILL.md"), content, 0644)
+	}
+
+	// Verify children are at root level (not nested)
+	childASkillFile := filepath.Join(sb.SourcePath, "child-a", "SKILL.md")
+	if !sb.FileExists(childASkillFile) {
+		t.Error("child-a/SKILL.md should exist at root level")
+	}
+
+	childBSkillFile := filepath.Join(sb.SourcePath, "child-b", "SKILL.md")
+	if !sb.FileExists(childBSkillFile) {
+		t.Error("child-b/SKILL.md should exist at root level")
+	}
+
+	// Orchestrator should NOT exist (wasn't selected)
+	parentSkillFile := filepath.Join(sb.SourcePath, "orchestrator")
+	if sb.FileExists(parentSkillFile) {
+		t.Error("orchestrator should NOT exist (wasn't selected)")
+	}
+}

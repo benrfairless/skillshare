@@ -274,6 +274,61 @@ func handleGitDiscovery(source *install.Source, cfg *config.Config, opts install
 }
 
 func promptSkillSelection(skills []install.SkillInfo) ([]install.SkillInfo, error) {
+	// Check for orchestrator structure (root + children)
+	var rootSkill *install.SkillInfo
+	var childSkills []install.SkillInfo
+	for i := range skills {
+		if skills[i].Path == "." {
+			rootSkill = &skills[i]
+		} else {
+			childSkills = append(childSkills, skills[i])
+		}
+	}
+
+	// If orchestrator structure detected, use two-stage selection
+	if rootSkill != nil && len(childSkills) > 0 {
+		return promptOrchestratorSelection(*rootSkill, childSkills)
+	}
+
+	// Otherwise, use standard multi-select
+	return promptMultiSelect(skills)
+}
+
+func promptOrchestratorSelection(rootSkill install.SkillInfo, childSkills []install.SkillInfo) ([]install.SkillInfo, error) {
+	// Stage 1: Choose install mode
+	options := []string{
+		fmt.Sprintf("Install entire pack  \033[90m%s + %d children\033[0m", rootSkill.Name, len(childSkills)),
+		"Select individual skills",
+	}
+
+	var modeIdx int
+	prompt := &survey.Select{
+		Message:  "Install mode:",
+		Options:  options,
+		PageSize: 5,
+	}
+
+	err := survey.AskOne(prompt, &modeIdx, survey.WithIcons(func(icons *survey.IconSet) {
+		icons.SelectFocus.Text = "▸"
+		icons.SelectFocus.Format = "yellow"
+	}))
+	if err != nil {
+		return nil, nil
+	}
+
+	// If "entire pack" selected, return all skills
+	if modeIdx == 0 {
+		allSkills := make([]install.SkillInfo, 0, len(childSkills)+1)
+		allSkills = append(allSkills, rootSkill)
+		allSkills = append(allSkills, childSkills...)
+		return allSkills, nil
+	}
+
+	// Stage 2: Select individual skills (children only, no root)
+	return promptMultiSelect(childSkills)
+}
+
+func promptMultiSelect(skills []install.SkillInfo) ([]install.SkillInfo, error) {
 	options := make([]string, len(skills))
 	for i, skill := range skills {
 		loc := skill.Path
@@ -321,17 +376,62 @@ func installSelectedSkills(selected []install.SkillInfo, discovery *install.Disc
 	results := make([]skillInstallResult, 0, len(selected))
 	installSpinner := ui.StartSpinnerWithSteps("Installing...", len(selected))
 
+	// Detect orchestrator: if root skill (path=".") is selected, children nest under it
+	var parentName string
+	var rootIdx = -1
 	for i, skill := range selected {
+		if skill.Path == "." {
+			parentName = skill.Name
+			rootIdx = i
+			break
+		}
+	}
+
+	// Reorder: install root skill first so children can nest under it
+	orderedSkills := selected
+	if rootIdx > 0 {
+		orderedSkills = make([]install.SkillInfo, 0, len(selected))
+		orderedSkills = append(orderedSkills, selected[rootIdx])
+		orderedSkills = append(orderedSkills, selected[:rootIdx]...)
+		orderedSkills = append(orderedSkills, selected[rootIdx+1:]...)
+	}
+
+	// Track if root was installed (children are already included in root)
+	rootInstalled := false
+
+	for i, skill := range orderedSkills {
 		installSpinner.NextStep(fmt.Sprintf("Installing %s...", skill.Name))
 		if i == 0 {
 			installSpinner.Update(fmt.Sprintf("Installing %s...", skill.Name))
 		}
-		destPath := filepath.Join(cfg.Source, skill.Name)
+
+		// Determine destination path
+		var destPath string
+		if skill.Path == "." {
+			// Root skill - install directly
+			destPath = filepath.Join(cfg.Source, skill.Name)
+		} else if parentName != "" {
+			// Child skill with parent selected - nest under parent
+			destPath = filepath.Join(cfg.Source, parentName, skill.Name)
+		} else {
+			// Standalone child skill - install to root
+			destPath = filepath.Join(cfg.Source, skill.Name)
+		}
+
+		// If root was installed, children are already included - skip reinstall
+		if rootInstalled && skill.Path != "." {
+			results = append(results, skillInstallResult{skill: skill, success: true, message: fmt.Sprintf("included in %s", parentName)})
+			continue
+		}
 
 		_, err := install.InstallFromDiscovery(discovery, skill, destPath, opts)
 		if err != nil {
 			results = append(results, skillInstallResult{skill: skill, success: false, message: err.Error()})
 			continue
+		}
+
+		if skill.Path == "." {
+			rootInstalled = true
 		}
 		results = append(results, skillInstallResult{skill: skill, success: true, message: "installed"})
 	}
