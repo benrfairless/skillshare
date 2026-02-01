@@ -45,9 +45,16 @@ detect_arch() {
   esac
 }
 
-# Get latest version from GitHub API
+# Get latest version using redirect (avoids API rate limit)
 get_latest_version() {
-  LATEST=$(curl -sL "https://api.github.com/repos/${REPO}/releases/latest" | grep '"tag_name"' | cut -d'"' -f4)
+  # Use redirect to get latest version (no API rate limit)
+  LATEST=$(curl -sI "https://github.com/${REPO}/releases/latest" | grep -i "^location:" | sed 's/.*tag\/\([^[:space:]]*\).*/\1/' | tr -d '\r')
+
+  # Fallback to API if redirect fails
+  if [ -z "$LATEST" ]; then
+    LATEST=$(curl -sL "https://api.github.com/repos/${REPO}/releases/latest" | grep '"tag_name"' | cut -d'"' -f4)
+  fi
+
   if [ -z "$LATEST" ]; then
     error "Failed to get latest version. Please check your internet connection."
   fi
