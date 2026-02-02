@@ -1,13 +1,29 @@
 # Backup & Restore
 
+## backup
+
+Create backups of target skill directories.
+
 ```bash
 skillshare backup                # All targets
 skillshare backup claude         # Specific target
-skillshare backup --list         # List backups
-skillshare backup --cleanup      # Remove old
-
-skillshare restore claude                            # Latest
-skillshare restore claude --from 2026-01-14_21-22   # Specific
+skillshare backup --list         # List existing backups
+skillshare backup --cleanup      # Remove old backups
 ```
 
-Backups: `~/.config/skillshare/backups/<timestamp>/`
+**Location:** `~/.config/skillshare/backups/<timestamp>/`
+
+## restore
+
+Restore target from backup.
+
+```bash
+skillshare restore claude                            # Latest backup
+skillshare restore claude --from 2026-01-14_21-22   # Specific backup
+```
+
+## Best Practices
+
+- Run `backup` before major changes
+- Use `--dry-run` with restore to preview
+- Keep backups with `--cleanup` to save disk space

@@ -1,11 +1,15 @@
-# Sync, Collect, Pull & Push Commands
+# Sync, Collect, Push & Pull
 
-| Type | Command | Direction |
-|------|---------|-----------|
-| **Local** | `sync` / `collect` | Source ↔ Targets |
-| **Remote** | `push` / `pull` | Source ↔ Git Remote |
+| Command | Direction | Description |
+|---------|-----------|-------------|
+| `sync` | Source → Targets | Distribute skills to all targets |
+| `collect` | Targets → Source | Import skills from target(s) |
+| `push` | Source → Remote | Git commit and push |
+| `pull` | Remote → Source → Targets | Git pull and sync |
 
 ## sync
+
+Distribute skills from source to all targets via symlinks.
 
 ```bash
 skillshare sync                # Execute
@@ -23,18 +27,9 @@ skillshare collect --all       # From all targets
 skillshare collect --dry-run   # Preview
 ```
 
-## pull
-
-Git pull + sync to all targets.
-
-```bash
-skillshare pull                # Pull + sync
-skillshare pull --dry-run      # Preview
-```
-
 ## push
 
-Git commit + push source.
+Git commit and push source to remote.
 
 ```bash
 skillshare push                # Default message
@@ -42,8 +37,19 @@ skillshare push -m "message"   # Custom message
 skillshare push --dry-run      # Preview
 ```
 
-## Workflows
+## pull
 
-**Local:** Edit anywhere → `collect` → `sync`
+Git pull from remote and sync to all targets.
 
-**Cross-machine:** Machine A: `push` → Machine B: `pull`
+```bash
+skillshare pull                # Pull + sync
+skillshare pull --dry-run      # Preview
+```
+
+## Common Workflows
+
+**Local editing:** Edit skill anywhere → `sync` (symlinks update source automatically)
+
+**Import local changes:** `collect <target>` → `sync`
+
+**Cross-machine sync:** Machine A: `push` → Machine B: `pull`

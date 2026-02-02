@@ -2,7 +2,7 @@
 
 ## status
 
-Shows source location, targets, and sync state.
+Overview of source, targets, and sync state.
 
 ```bash
 skillshare status
@@ -10,7 +10,7 @@ skillshare status
 
 ## diff
 
-Shows differences between source and targets.
+Show differences between source and targets.
 
 ```bash
 skillshare diff                # All targets
@@ -19,29 +19,35 @@ skillshare diff claude         # Specific target
 
 ## list
 
-Lists installed skills.
+List installed skills.
 
 ```bash
 skillshare list                # Basic list
-skillshare list --verbose      # With source and install info
+skillshare list --verbose      # With source info
 ```
 
 ## search
 
-Search GitHub for skills (repos with SKILL.md).
+Search GitHub for skills (repos containing SKILL.md).
 
 ```bash
 skillshare search <query>           # Interactive (select to install)
-skillshare search <query> --list    # List only, no install prompt
-skillshare search <query> --json    # JSON output for scripting
-skillshare search <query> -n 10     # Limit results (default: 20, max: 100)
+skillshare search <query> --list    # List only
+skillshare search <query> --json    # JSON output
+skillshare search <query> -n 10     # Limit results (default: 20)
 ```
 
-**Requires GitHub auth** (gh CLI or `GITHUB_TOKEN` env var).
+**Requires:** GitHub auth (`gh` CLI or `GITHUB_TOKEN` env var).
+
+**Query examples:**
+- `react performance` - Performance optimization
+- `pr review` - Code review skills
+- `commit` - Git commit helpers
+- `changelog` - Changelog generation
 
 ## doctor
 
-Checks configuration health and diagnoses issues.
+Diagnose configuration and environment issues.
 
 ```bash
 skillshare doctor
@@ -49,7 +55,7 @@ skillshare doctor
 
 ## upgrade
 
-Upgrades CLI binary and/or built-in skillshare skill.
+Upgrade CLI binary and/or built-in skillshare skill.
 
 ```bash
 skillshare upgrade              # Both CLI + skill
@@ -59,4 +65,4 @@ skillshare upgrade --force      # Skip confirmation
 skillshare upgrade --dry-run    # Preview
 ```
 
-After upgrading skill: `skillshare sync`
+**After upgrading skill:** `skillshare sync`

@@ -1,35 +1,44 @@
 # Init Command
 
+Initialize skillshare configuration.
+
 **Source:** Always `~/.config/skillshare/skills` (use `--source` only if user explicitly requests).
 
 ## Flags
 
-**Copy (mutually exclusive):**
-- `--copy-from <name|path>` — Import from target/path
-- `--no-copy` — Empty source
+| Flag | Description |
+|------|-------------|
+| `--copy-from <name\|path>` | Import skills from target/path |
+| `--no-copy` | Start with empty source |
+| `--targets "claude,cursor"` | Specific targets |
+| `--all-targets` | All detected targets |
+| `--no-targets` | Skip target setup |
+| `--git` | Initialize git repo |
+| `--no-git` | Skip git init |
+| `--discover` | Discover new AI tools (interactive) |
+| `--discover --select "a,b"` | Non-interactive discovery |
+| `--source <path>` | Custom source path |
+| `--remote <url>` | Set git remote |
+| `--dry-run` | Preview changes |
 
-**Targets (mutually exclusive):**
-- `--targets "claude,cursor"` — Specific list
-- `--all-targets` — All detected
-- `--no-targets` — Skip
-
-**Git (mutually exclusive):**
-- `--git` — Init git (recommended)
-- `--no-git` — Skip
-
-**Discover (add new agents):**
-- `--discover --select "windsurf,kilocode"` — Non-interactive (AI use this)
-- `--discover` — Interactive only (NOT for AI)
-
-**Other:**
-- `--source <path>` — Custom source (**only if user requests**)
-- `--remote <url>` — Set git remote
-- `--dry-run` — Preview
-
-## Examples
+## AI Usage (Non-Interactive)
 
 ```bash
-skillshare init --no-copy --all-targets --git           # Fresh start
-skillshare init --copy-from claude --all-targets --git  # Import from Claude
-skillshare init --discover --select "windsurf"          # Add new agents
+# Step 1: Check for existing skills
+ls ~/.claude/skills ~/.cursor/skills 2>/dev/null | head -10
+
+# Step 2a: Fresh start
+skillshare init --no-copy --all-targets --git
+
+# Step 2b: Import existing skills
+skillshare init --copy-from claude --all-targets --git
+
+# Step 3: Verify
+skillshare status
+```
+
+## Adding New Targets Later
+
+```bash
+skillshare init --discover --select "windsurf,kilocode"
 ```

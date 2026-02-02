@@ -29,7 +29,7 @@ detect_os() {
   case "$OS" in
     darwin) OS="darwin" ;;
     linux) OS="linux" ;;
-    mingw*|msys*|cygwin*) error "Windows is not supported via this script. Please download from GitHub releases." ;;
+    mingw*|msys*|cygwin*) error "Use PowerShell: irm https://raw.githubusercontent.com/runkids/skillshare/main/install.ps1 | iex" ;;
     *) error "Unsupported OS: $OS" ;;
   esac
 }

@@ -8,23 +8,32 @@
 | Target shows differences | `skillshare sync` |
 | Lost source files | `cd ~/.config/skillshare/skills && git checkout -- .` |
 | Skill not appearing | `skillshare sync` after install |
-| Git push fails | `git remote add origin <url>` in source |
+| Git push fails | Check remote: `git -C ~/.config/skillshare/skills remote -v` |
+
+## Diagnostic Commands
+
+```bash
+skillshare doctor          # Check environment
+skillshare status          # Overview
+skillshare diff            # Show differences
+ls -la ~/.claude/skills    # Check symlinks
+```
 
 ## Recovery
 
 ```bash
-skillshare doctor          # Diagnose
-skillshare backup          # Safety backup
-skillshare sync --dry-run  # Preview
-skillshare sync            # Fix
+skillshare backup          # Safety backup first
+skillshare sync --dry-run  # Preview changes
+skillshare sync            # Apply fix
 ```
 
 ## Git Recovery
 
 ```bash
 cd ~/.config/skillshare/skills
-git checkout -- <skill>/   # Restore specific
-git checkout -- .          # Restore all
+git status                 # Check state
+git checkout -- <skill>/   # Restore specific skill
+git checkout -- .          # Restore all skills
 ```
 
 ## AI Assistant Notes
@@ -34,28 +43,26 @@ git checkout -- .          # Restore all
 - **merge mode** (default): Per-skill symlinks. Edit anywhere = edit source.
 - **symlink mode**: Entire directory symlinked.
 
-**Safe:** `skillshare uninstall`, `target remove`
+**Safe commands:** `skillshare uninstall`, `skillshare target remove`
 
 **DANGEROUS:** `rm -rf` on symlinked skills deletes source!
 
-### When to Use --dry-run
-
-- First-time users
-- Before `sync`, `collect --all`, `restore`
-- Before `install` from unknown sources
-
-### Init (Non-Interactive)
+### Non-Interactive Usage
 
 AI cannot respond to CLI prompts. Always use flags:
 
 ```bash
+# Good (non-interactive)
 skillshare init --copy-from claude --all-targets --git
+skillshare uninstall my-skill --force
+
+# Bad (requires user input)
+skillshare init
+skillshare uninstall my-skill
 ```
 
-### Debug Sync
+### When to Use --dry-run
 
-```bash
-skillshare status
-skillshare diff
-ls -la ~/.claude/skills  # Check symlinks
-```
+- First-time operations
+- Before `sync`, `collect --all`, `restore`
+- Before `install` from unknown sources

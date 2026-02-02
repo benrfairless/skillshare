@@ -1,7 +1,13 @@
 ---
 name: skillshare
-version: 0.8.1
-description: Syncs skills across AI CLI tools from a single source of truth. Use when asked to "sync skills", "collect skills", "pull from remote", "show status", "list skills", "install skill", "initialize skillshare", "search skills", or manage skill targets.
+version: 0.8.2
+description: |
+  Syncs skills across AI CLI tools (Claude, Cursor, Windsurf, etc.) from a single source of truth.
+  Use when: "sync skills", "install skill", "search skills", "list skills", "show skill status",
+  "backup skills", "restore skills", "update skills", "new skill", "collect skills",
+  "push/pull skills", "add/remove target", "find a skill for X", "is there a skill that can...",
+  "how do I do X with skills", "skillshare init", "skillshare upgrade", "skill not syncing",
+  "diagnose skillshare", "doctor", or any skill/target management across AI tools.
 argument-hint: "[command] [target] [--dry-run]"
 ---
 
@@ -23,56 +29,62 @@ skillshare sync                # Execute
 
 ## Commands
 
-| Task | Command |
-|------|---------|
-| **Status** | `status`, `diff`, `list --verbose`, `doctor` |
-| **Sync** | `sync`, `sync --dry-run` |
-| **Create** | `new <name>` → `sync` |
-| **Search** | `search <query>`, `search --list`, `search --json` |
-| **Install** | `install <source>` → `sync` |
-| **Team repo** | `install <url> --track` → `sync` |
-| **Collect** | `collect <target>` → `sync` |
-| **Update** | `update <name>`, `update --all` → `sync` |
-| **Remove** | `uninstall <name>` → `sync` |
-| **Git sync** | `push -m "msg"`, `pull` |
-| **Targets** | `target add <n> <p>`, `target remove <n>`, `target <n> --mode merge\|symlink` |
-| **Upgrade** | `upgrade`, `upgrade --cli`, `upgrade --skill` |
+| Category | Commands |
+|----------|----------|
+| **Inspect** | `status`, `diff`, `list`, `doctor` |
+| **Sync** | `sync`, `collect`, `push`, `pull` |
+| **Skills** | `new`, `install`, `uninstall`, `update`, `search` |
+| **Targets** | `target add/remove/list`, `backup`, `restore` |
+| **Upgrade** | `upgrade [--cli\|--skill]` |
 
-## Init (Non-Interactive)
+**Workflow:** Most commands require `sync` afterward to distribute changes.
 
-**AI must use flags** — cannot respond to CLI prompts.
+## AI Usage Notes
+
+### Non-Interactive Mode
+
+AI cannot respond to CLI prompts. Always use flags:
 
 ```bash
-# Step 1: Check existing skills
+# Init - check existing skills first
 ls ~/.claude/skills ~/.cursor/skills 2>/dev/null | head -10
 
-# Step 2: Run based on findings
+# Then run with appropriate flags
 skillshare init --copy-from claude --all-targets --git  # If skills exist
 skillshare init --no-copy --all-targets --git           # Fresh start
 
-# Step 3: Verify
-skillshare status
-```
-
-**Add new agents later:**
-```bash
+# Add new agents later
 skillshare init --discover --select "windsurf,kilocode"
 ```
 
-See [init.md](references/init.md) for all flags.
+### Safety
 
-## Safety
+**NEVER** `rm -rf` symlinked skills — deletes source. Always use:
+- `skillshare uninstall <name>` to remove skills
+- `skillshare target remove <name>` to unlink targets
 
-**NEVER** `rm -rf` symlinked skills — deletes source. Use `skillshare uninstall`.
+### Finding Skills
+
+When users ask "how do I do X" or "find a skill for...":
+
+```bash
+skillshare search <query>           # Interactive install
+skillshare search <query> --list    # List only
+skillshare search <query> --json    # JSON output
+```
+
+**Query examples:** `react performance`, `pr review`, `commit`, `changelog`
+
+**No results?** Try different keywords, or offer to help directly.
 
 ## References
 
 | Topic | File |
 |-------|------|
 | Init flags | [init.md](references/init.md) |
-| Sync/pull/push | [sync.md](references/sync.md) |
-| Install/update | [install.md](references/install.md) |
-| Status/diff/list | [status.md](references/status.md) |
+| Sync/collect/push/pull | [sync.md](references/sync.md) |
+| Install/update/new | [install.md](references/install.md) |
+| Status/diff/list/search | [status.md](references/status.md) |
 | Target management | [targets.md](references/targets.md) |
 | Backup/restore | [backup.md](references/backup.md) |
 | Troubleshooting | [TROUBLESHOOTING.md](references/TROUBLESHOOTING.md) |
