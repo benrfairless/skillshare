@@ -37,12 +37,36 @@ func displayLocalSkills(skills []sync.LocalSkillInfo) {
 }
 
 func cmdCollect(args []string) error {
+	mode, rest, err := parseModeArgs(args)
+	if err != nil {
+		return err
+	}
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("cannot determine working directory: %w", err)
+	}
+
+	if mode == modeAuto {
+		if projectConfigExists(cwd) {
+			mode = modeProject
+		} else {
+			mode = modeGlobal
+		}
+	}
+
+	applyModeLabel(mode)
+
+	if mode == modeProject {
+		return cmdCollectProject(rest, cwd)
+	}
+
 	dryRun := false
 	force := false
 	collectAll := false
 	var targetName string
 
-	for _, arg := range args {
+	for _, arg := range rest {
 		switch arg {
 		case "--dry-run", "-n":
 			dryRun = true
@@ -159,6 +183,10 @@ func executeCollect(skills []sync.LocalSkillInfo, source string, dryRun, force b
 
 func showCollectNextSteps(source string) {
 	fmt.Println()
+	if ui.ModeLabel == "project" {
+		ui.Info("Run 'skillshare sync -p' to distribute to all targets")
+		return
+	}
 	ui.Info("Run 'skillshare sync' to distribute to all targets")
 
 	// Check if source has git

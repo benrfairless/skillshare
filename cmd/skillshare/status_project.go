@@ -4,8 +4,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
+	"skillshare/internal/install"
 	"skillshare/internal/sync"
+	"skillshare/internal/ui"
 	"skillshare/internal/utils"
 )
 
@@ -21,66 +24,76 @@ func cmdStatusProject(root string) error {
 		return err
 	}
 
-	skills, err := sync.DiscoverSourceSkills(runtime.sourcePath)
-	if err != nil {
-		return fmt.Errorf("cannot discover skills: %w", err)
-	}
-
-	fmt.Printf("Project: %s\n", root)
-	fmt.Printf("Source: .skillshare/skills/ (%d skills)\n\n", len(skills))
-	fmt.Println("Targets:")
-
-	for _, entry := range runtime.config.Targets {
-		target, ok := runtime.targets[entry.Name]
-		if !ok {
-			fmt.Printf("  %-12s %-16s ✗ target not found\n", entry.Name, projectTargetDisplayPath(entry))
-			continue
-		}
-
-		missing := countMissingProjectSkills(target.Path, runtime.sourcePath, skills)
-		displayPath := projectTargetDisplayPath(entry)
-		if missing == 0 {
-			fmt.Printf("  %-12s %-16s ✓ synced (%d/%d)\n", entry.Name, displayPath, len(skills), len(skills))
-		} else {
-			fmt.Printf("  %-12s %-16s ✗ %d missing\n", entry.Name, displayPath, missing)
-		}
-	}
+	printProjectSourceStatus(runtime.sourcePath)
+	printProjectTrackedReposStatus(runtime.sourcePath)
+	printProjectTargetsStatus(runtime)
 
 	return nil
 }
 
-func countMissingProjectSkills(targetPath, sourcePath string, skills []sync.DiscoveredSkill) int {
-	missing := 0
-	for _, skill := range skills {
-		targetSkillPath := filepath.Join(targetPath, skill.FlatName)
-		info, err := os.Lstat(targetSkillPath)
-		if err != nil {
-			missing++
-			continue
-		}
-
-		if info.Mode()&os.ModeSymlink == 0 {
-			missing++
-			continue
-		}
-
-		link, err := os.Readlink(targetSkillPath)
-		if err != nil {
-			missing++
-			continue
-		}
-
-		absLink := link
-		if !filepath.IsAbs(link) {
-			absLink = filepath.Join(filepath.Dir(targetSkillPath), link)
-		}
-		absLink, _ = filepath.Abs(absLink)
-		absSource, _ := filepath.Abs(skill.SourcePath)
-
-		if !utils.PathsEqual(absLink, absSource) {
-			missing++
-		}
+func printProjectSourceStatus(sourcePath string) {
+	ui.Header("Source")
+	info, err := os.Stat(sourcePath)
+	if err != nil {
+		ui.Error(".skillshare/skills/ (not found)")
+		return
 	}
 
-	return missing
+	entries, _ := os.ReadDir(sourcePath)
+	skillCount := 0
+	for _, e := range entries {
+		if e.IsDir() && !utils.IsHidden(e.Name()) {
+			skillCount++
+		}
+	}
+	ui.Success(".skillshare/skills/ (%d skills, %s)", skillCount, info.ModTime().Format("2006-01-02 15:04"))
 }
+
+func printProjectTrackedReposStatus(sourcePath string) {
+	trackedRepos, err := install.GetTrackedRepos(sourcePath)
+	if err != nil || len(trackedRepos) == 0 {
+		return
+	}
+
+	ui.Header("Tracked Repositories")
+	for _, repoName := range trackedRepos {
+		repoPath := filepath.Join(sourcePath, repoName)
+
+		discovered, _ := sync.DiscoverSourceSkills(sourcePath)
+		skillCount := 0
+		for _, d := range discovered {
+			if d.IsInRepo && strings.HasPrefix(d.RelPath, repoName+"/") {
+				skillCount++
+			}
+		}
+
+		statusStr := "up-to-date"
+		statusIcon := "✓"
+		if isDirty, _ := checkRepoDirty(repoPath); isDirty {
+			statusStr = "has uncommitted changes"
+			statusIcon = "!"
+		}
+
+		ui.Status(repoName, statusIcon, fmt.Sprintf("%d skills, %s", skillCount, statusStr))
+	}
+}
+
+func printProjectTargetsStatus(runtime *projectRuntime) {
+	ui.Header("Targets")
+	for _, entry := range runtime.config.Targets {
+		target, ok := runtime.targets[entry.Name]
+		if !ok {
+			ui.Error("%s: target not found", entry.Name)
+			continue
+		}
+
+		mode := target.Mode
+		if mode == "" {
+			mode = "merge"
+		}
+
+		statusStr, detail := getTargetStatusDetail(target, runtime.sourcePath, mode)
+		ui.Status(entry.Name, statusStr, detail)
+	}
+}
+

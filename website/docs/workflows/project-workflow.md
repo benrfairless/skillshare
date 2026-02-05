@@ -10,18 +10,18 @@ The edit → sync → commit cycle for project-level skill management.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                  PROJECT WORKFLOW                                 │
-│                                                                  │
-│   EDIT ──► SYNC ──► COMMIT ──► PUSH                              │
-│     │        │                    │                               │
-│     ▼        ▼                    ▼                               │
-│   .skillshare/   .claude/       Remote                           │
-│   skills/        .cursor/       (GitHub)                         │
-│                  etc.              │                               │
-│                                    ▼                               │
-│                              Team members                        │
-│                              clone + install + sync              │
-│                                                                  │
+│                  PROJECT WORKFLOW                               │
+│                                                                 │
+│   EDIT ──► SYNC ──► COMMIT ──► PUSH                             │
+│     │        │                    │                             │
+│     ▼        ▼                    ▼                             │
+│   .skillshare/   .claude/       Remote                          │
+│   skills/        .cursor/       (GitHub)                        │
+│                  etc.              │                            │
+│                                    ▼                            │
+│                              Team members                       │
+│                              clone + install + sync             │
+│                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
 

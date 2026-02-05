@@ -9,25 +9,25 @@ Run skillshare at the project level — skills scoped to a single repository, sh
 ## Overview
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
+┌──────────────────────────────────────────────────────────────────┐
 │                    PROJECT MODE                                  │
 │                                                                  │
 │    ┌────────────────────────────────────────────────┐            │
-│    │            .skillshare/skills/                  │            │
-│    │   (project source — committed to git)           │            │
-│    │                                                 │            │
-│    │   my-skill/   remote-skill/                     │            │
-│    └────────────────────────┬────────────────────────┘            │
-│                  sync ↓     │                                     │
-│          ┌──────────────────┼──────────────────┐                  │
-│          ▼                  ▼                  ▼                  │
+│    │           .skillshare/skills/                  │            │
+│    │   (project source — committed to git)          │            │
+│    │                                                │            │
+│    │   my-skill/   remote-skill/                    │            │
+│    └────────────────────────┬───────────────────────┘            │
+│                  sync ↓     │                                    │
+│          ┌──────────────────┼──────────────────┐                 │
+│          ▼                  ▼                  ▼                 │
 │    ┌──────────┐       ┌──────────┐       ┌──────────┐            │
-│    │  .claude  │       │  .cursor  │       │  custom  │            │
-│    │  /skills  │       │  /skills  │       │  /skills  │            │
+│    │  .claude │       │  .cursor │       │  custom  │            │
+│    │  /skills │       │  /skills │       │  /skills │            │
 │    └──────────┘       └──────────┘       └──────────┘            │
-│                         TARGETS                                   │
-│           (merge or symlink mode, per-target)                     │
-└─────────────────────────────────────────────────────────────────┘
+│                         TARGETS                                  │
+│           (merge or symlink mode, per-target)                    │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -133,7 +133,7 @@ Project mode has some intentional limitations:
 | `--track` repos | ✓ | Cloned to `.skillshare/skills/_repo/`, added to `.gitignore` |
 | `--discover` | ✓ | Detect and add new targets to existing project config |
 | `push` / `pull` | ✗ | Use git directly on the project repo |
-| `collect` | ✗ | Edit skills in `.skillshare/skills/` directly |
+| `collect` | ✓ | Collect local skills from project targets to `.skillshare/skills/` |
 | `backup` / `restore` | ✗ | Not needed (project targets are reproducible) |
 
 ---
