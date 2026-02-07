@@ -5,6 +5,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_call:
 
 jobs:
   unit-test:
@@ -47,3 +48,22 @@ jobs:
         run: go test -v -race ./tests/integration/...
         env:
           SKILLSHARE_TEST_BINARY: ${{ github.workspace }}/bin/skillshare
+
+  docker-sandbox-offline:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Docker Sandbox Tests (Offline)
+        run: ./scripts/test_docker.sh
+
+  docker-sandbox-online:
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Docker Sandbox Tests (Online)
+        run: ./scripts/test_docker_online.sh
