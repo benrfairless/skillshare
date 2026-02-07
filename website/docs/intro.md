@@ -88,4 +88,5 @@ Edit in source → all targets update. Edit in target → changes go to source (
 **Learn more:**
 - [Core Concepts](/docs/concepts) — Source, targets, sync modes
 - [Commands Reference](/docs/commands) — All available commands
+- [Docker Sandbox Guide](/docs/guides/docker-sandbox) — Isolated testing and playground
 - [FAQ](/docs/troubleshooting/faq) — Common questions

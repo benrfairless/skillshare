@@ -71,7 +71,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Get project root
-PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$PROJECT_ROOT"
 
 # Build binary for integration tests

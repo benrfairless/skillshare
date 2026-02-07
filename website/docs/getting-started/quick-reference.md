@@ -55,6 +55,16 @@ Command cheat sheet for skillshare.
 | Command | Description |
 |---------|-------------|
 | `doctor` | Diagnose issues |
+| `mise run test:docker` | Run offline Docker sandbox tests |
+| `mise run test:docker:online` | Run optional online Docker tests |
+| `mise run sandbox:up` | Start persistent playground container |
+| `mise run sandbox:shell` | Enter playground shell |
+| `mise run sandbox:down` | Stop playground container |
+| `make test-docker` | Run offline Docker sandbox tests |
+| `make test-docker-online` | Run optional online Docker tests |
+| `make sandbox-up` | Start persistent playground container |
+| `make sandbox-shell` | Enter playground shell |
+| `make sandbox-down` | Stop playground container |
 
 ---
 
@@ -90,6 +100,23 @@ skillshare install github.com/team/skills --track
 # Update from team
 skillshare update --all
 skillshare sync
+```
+
+### Sandbox playground session
+```bash
+mise run sandbox:up
+mise run sandbox:shell
+skillshare --help
+ss status
+mise run sandbox:down
+```
+
+```bash
+make sandbox-up
+make sandbox-shell
+skillshare --help
+ss status
+make sandbox-down
 ```
 
 ---

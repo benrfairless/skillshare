@@ -49,6 +49,7 @@ const sidebars: SidebarsConfig = {
         'guides/migration',
         'guides/best-practices',
         'guides/project-setup',
+        'guides/docker-sandbox',
       ],
     },
     {

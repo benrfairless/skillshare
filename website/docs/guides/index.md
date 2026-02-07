@@ -16,6 +16,7 @@ In-depth guides for specific use cases.
 | [Cross-Machine Sync](./cross-machine-sync) | Sync skills across computers |
 | [Migration](./migration) | Migrate from other tools |
 | [Best Practices](./best-practices) | Naming, organization, and versioning |
+| [Docker Sandbox](./docker-sandbox) | Isolated test sandbox and interactive playground |
 
 ---
 
@@ -35,3 +36,7 @@ In-depth guides for specific use cases.
 ### For Migration
 
 - [Migration](./migration) — Coming from other tools
+
+### For Verification and Experimentation
+
+- [Docker Sandbox](./docker-sandbox) — Repeatable test gate + persistent playground

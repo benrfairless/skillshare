@@ -153,6 +153,88 @@ Done. Your skills are now synced across all AI CLI tools.
 | `doctor` | Diagnose issues |
 | `upgrade` | Upgrade CLI and skill |
 
+## Docker Sandbox Testing
+
+Use Docker to run reproducible tests in an isolated environment.
+
+Guide: [Docker Sandbox Guide](https://skillshare.runkids.cc/docs/guides/docker-sandbox)
+
+With `mise`:
+
+```bash
+mise run test:docker
+```
+
+With `make`:
+
+```bash
+make test-docker
+```
+
+This offline sandbox runs Go `build + unit + integration` with `network_mode: none`.
+It covers install/update flows based on local paths and `file://` git repositories.
+
+Run optional network-dependent install/update checks separately:
+
+With `mise`:
+
+```bash
+mise run test:docker:online
+```
+
+With `make`:
+
+```bash
+make test-docker-online
+```
+
+You can also pass custom commands:
+
+```bash
+./scripts/test_docker.sh --cmd "go test -v ./tests/integration/..."
+./scripts/test_docker_online.sh --cmd "go test -v -tags online ./tests/integration/... -run TestInstall_Remote"
+```
+
+### Interactive Playground
+
+Use a dedicated persistent container for manually exploring skillshare commands.
+
+With `mise`:
+
+```bash
+mise run sandbox:up
+mise run sandbox:shell
+```
+
+With `make`:
+
+```bash
+make sandbox-up
+make sandbox-shell
+```
+
+Inside the container you can run directly (no manual build needed):
+
+```bash
+skillshare --help
+ss --help
+skillshare init --dry-run
+```
+
+Stop the playground when done:
+
+With `mise`:
+
+```bash
+mise run sandbox:down
+```
+
+With `make`:
+
+```bash
+make sandbox-down
+```
+
 ## Documentation
 
 📖 **Full documentation at [skillshare.runkids.cc](https://skillshare.runkids.cc/docs/intro)**
@@ -164,6 +246,7 @@ Done. Your skills are now synced across all AI CLI tools.
 | [Project Skills](https://skillshare.runkids.cc/docs/guides/project-setup) | Project-level skills setup |
 | [Organization Skills](https://skillshare.runkids.cc/docs/guides/organization-sharing) | Organization-wide sharing with tracked repos |
 | [Cross-machine](https://skillshare.runkids.cc/docs/guides/cross-machine-sync) | Multi-machine sync |
+| [Docker Sandbox](https://skillshare.runkids.cc/docs/guides/docker-sandbox) | Test sandbox and interactive playground |
 | [FAQ](https://skillshare.runkids.cc/docs/troubleshooting/faq) | FAQ & troubleshooting |
 
 ---
