@@ -77,6 +77,9 @@ func cmdInstallProject(args []string, root string) error {
 	}
 
 	if parsed.sourceArg == "" {
+		if parsed.opts.Name != "" {
+			return fmt.Errorf("--name requires a source; it cannot be used with 'skillshare install -p' (no source)")
+		}
 		return installFromProjectConfig(runtime, parsed.opts)
 	}
 

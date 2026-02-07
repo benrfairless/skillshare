@@ -788,3 +788,199 @@ targets: {}
 		t.Error("orchestrator should NOT exist (wasn't selected)")
 	}
 }
+
+// TestInstall_Discovery_RootSkill tests that a repo with SKILL.md only at the
+// root is correctly discovered (fixes issue #8).
+func TestInstall_Discovery_RootSkill(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+`)
+
+	// Create a git repo with SKILL.md at root only (no child skills)
+	gitRepoPath := filepath.Join(sb.Root, "root-skill-repo")
+	os.MkdirAll(gitRepoPath, 0755)
+	os.WriteFile(filepath.Join(gitRepoPath, "SKILL.md"), []byte("---\nname: root-skill\n---\n# Root Skill"), 0644)
+	os.WriteFile(filepath.Join(gitRepoPath, "README.md"), []byte("# Repo with root skill only"), 0644)
+
+	// Initialize git repo
+	cmd := exec.Command("git", "init")
+	cmd.Dir = gitRepoPath
+	if err := cmd.Run(); err != nil {
+		t.Skip("git not available, skipping git test")
+	}
+
+	cmd = exec.Command("git", "config", "user.email", "test@test.com")
+	cmd.Dir = gitRepoPath
+	cmd.Run()
+
+	cmd = exec.Command("git", "config", "user.name", "Test")
+	cmd.Dir = gitRepoPath
+	cmd.Run()
+
+	cmd = exec.Command("git", "add", ".")
+	cmd.Dir = gitRepoPath
+	cmd.Run()
+
+	cmd = exec.Command("git", "commit", "-m", "Initial commit")
+	cmd.Dir = gitRepoPath
+	cmd.Run()
+
+	// Test discovery via the internal API directly
+	source, err := install.ParseSource("file://" + gitRepoPath)
+	if err != nil {
+		t.Fatalf("ParseSource() error = %v", err)
+	}
+
+	discovery, err := install.DiscoverFromGit(source)
+	if err != nil {
+		t.Fatalf("DiscoverFromGit() error = %v", err)
+	}
+	defer install.CleanupDiscovery(discovery)
+
+	// Should find exactly 1 skill (the root)
+	if len(discovery.Skills) != 1 {
+		t.Fatalf("expected 1 skill, got %d: %+v", len(discovery.Skills), discovery.Skills)
+	}
+
+	skill := discovery.Skills[0]
+	if skill.Path != "." {
+		t.Errorf("skill Path = %q, want %q", skill.Path, ".")
+	}
+	// Name should be derived from repo name, not temp dir
+	if skill.Name != "root-skill-repo" {
+		t.Errorf("skill Name = %q, want %q", skill.Name, "root-skill-repo")
+	}
+}
+
+func TestInstall_FileURLDot_DryRun_UsesRepoName(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+`)
+
+	gitRepoPath := filepath.Join(sb.Root, "root-skill-repo")
+	os.MkdirAll(gitRepoPath, 0755)
+	os.WriteFile(filepath.Join(gitRepoPath, "SKILL.md"), []byte("# Root Skill"), 0644)
+
+	cmd := exec.Command("git", "init")
+	cmd.Dir = gitRepoPath
+	if err := cmd.Run(); err != nil {
+		t.Skip("git not available, skipping git test")
+	}
+
+	cmd = exec.Command("git", "config", "user.email", "test@test.com")
+	cmd.Dir = gitRepoPath
+	cmd.Run()
+
+	cmd = exec.Command("git", "config", "user.name", "Test")
+	cmd.Dir = gitRepoPath
+	cmd.Run()
+
+	cmd = exec.Command("git", "add", ".")
+	cmd.Dir = gitRepoPath
+	cmd.Run()
+
+	cmd = exec.Command("git", "commit", "-m", "Initial commit")
+	cmd.Dir = gitRepoPath
+	cmd.Run()
+
+	result := sb.RunCLI("install", "file://"+gitRepoPath+"/.", "--dry-run")
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "root-skill-repo")
+	result.AssertOutputNotContains(t, "── . ──")
+}
+
+func TestInstall_Discovery_SingleSkill_CustomName(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+`)
+
+	gitRepoPath := filepath.Join(sb.Root, "root-skill-repo")
+	os.MkdirAll(gitRepoPath, 0755)
+	os.WriteFile(filepath.Join(gitRepoPath, "SKILL.md"), []byte("# Root Skill"), 0644)
+
+	cmd := exec.Command("git", "init")
+	cmd.Dir = gitRepoPath
+	if err := cmd.Run(); err != nil {
+		t.Skip("git not available, skipping git test")
+	}
+
+	cmd = exec.Command("git", "config", "user.email", "test@test.com")
+	cmd.Dir = gitRepoPath
+	cmd.Run()
+
+	cmd = exec.Command("git", "config", "user.name", "Test")
+	cmd.Dir = gitRepoPath
+	cmd.Run()
+
+	cmd = exec.Command("git", "add", ".")
+	cmd.Dir = gitRepoPath
+	cmd.Run()
+
+	cmd = exec.Command("git", "commit", "-m", "Initial commit")
+	cmd.Dir = gitRepoPath
+	cmd.Run()
+
+	result := sb.RunCLI("install", "file://"+gitRepoPath, "--name", "haha")
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "haha")
+
+	if !sb.FileExists(filepath.Join(sb.SourcePath, "haha", "SKILL.md")) {
+		t.Fatal("expected skill to be installed with custom name")
+	}
+
+	if sb.FileExists(filepath.Join(sb.SourcePath, "root-skill-repo")) {
+		t.Fatal("repo-derived name should not be installed when --name is provided")
+	}
+}
+
+func TestInstall_Discovery_MultipleSkills_NameFlagErrors(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+`)
+
+	gitRepoPath := filepath.Join(sb.Root, "multi-skill-repo")
+	skillAPath := filepath.Join(gitRepoPath, "skill-a")
+	skillBPath := filepath.Join(gitRepoPath, "skill-b")
+	os.MkdirAll(skillAPath, 0755)
+	os.MkdirAll(skillBPath, 0755)
+	os.WriteFile(filepath.Join(skillAPath, "SKILL.md"), []byte("# Skill A"), 0644)
+	os.WriteFile(filepath.Join(skillBPath, "SKILL.md"), []byte("# Skill B"), 0644)
+
+	cmd := exec.Command("git", "init")
+	cmd.Dir = gitRepoPath
+	if err := cmd.Run(); err != nil {
+		t.Skip("git not available, skipping git test")
+	}
+
+	cmd = exec.Command("git", "config", "user.email", "test@test.com")
+	cmd.Dir = gitRepoPath
+	cmd.Run()
+
+	cmd = exec.Command("git", "config", "user.name", "Test")
+	cmd.Dir = gitRepoPath
+	cmd.Run()
+
+	cmd = exec.Command("git", "add", ".")
+	cmd.Dir = gitRepoPath
+	cmd.Run()
+
+	cmd = exec.Command("git", "commit", "-m", "Initial commit")
+	cmd.Dir = gitRepoPath
+	cmd.Run()
+
+	result := sb.RunCLI("install", "file://"+gitRepoPath, "--name", "renamed")
+	result.AssertFailure(t)
+	result.AssertAnyOutputContains(t, "--name can only be used when exactly one skill is discovered")
+}

@@ -124,6 +124,13 @@ func TestParseSource_GitHubShorthand(t *testing.T) {
 			wantSubdir:   "",
 			wantName:     "repo",
 		},
+		{
+			name:         "github dot subdir normalized to root",
+			input:        "github.com/user/repo/.",
+			wantCloneURL: "https://github.com/user/repo.git",
+			wantSubdir:   "",
+			wantName:     "repo",
+		},
 	}
 
 	for _, tt := range tests {
@@ -211,6 +218,52 @@ func TestParseSource_GitHTTPS(t *testing.T) {
 			name:         "bitbucket https",
 			input:        "https://bitbucket.org/user/repo.git",
 			wantCloneURL: "https://bitbucket.org/user/repo.git",
+			wantName:     "repo",
+		},
+		{
+			name:         "gitlab https dot subdir normalized to root",
+			input:        "https://gitlab.com/user/repo/.",
+			wantCloneURL: "https://gitlab.com/user/repo.git",
+			wantName:     "repo",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			source, err := ParseSource(tt.input)
+			if err != nil {
+				t.Fatalf("ParseSource() error = %v", err)
+			}
+			if source.Type != SourceTypeGitHTTPS {
+				t.Errorf("Type = %v, want %v", source.Type, SourceTypeGitHTTPS)
+			}
+			if source.CloneURL != tt.wantCloneURL {
+				t.Errorf("CloneURL = %v, want %v", source.CloneURL, tt.wantCloneURL)
+			}
+			if source.Name != tt.wantName {
+				t.Errorf("Name = %v, want %v", source.Name, tt.wantName)
+			}
+		})
+	}
+}
+
+func TestParseSource_FileURL(t *testing.T) {
+	tests := []struct {
+		name         string
+		input        string
+		wantCloneURL string
+		wantName     string
+	}{
+		{
+			name:         "file url",
+			input:        "file:///path/to/repo",
+			wantCloneURL: "file:///path/to/repo",
+			wantName:     "repo",
+		},
+		{
+			name:         "file url with dot suffix normalized to root",
+			input:        "file:///path/to/repo/.",
+			wantCloneURL: "file:///path/to/repo",
 			wantName:     "repo",
 		},
 	}

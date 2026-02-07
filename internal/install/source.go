@@ -163,6 +163,11 @@ func parseGitHub(matches []string, source *Source) (*Source, error) {
 	// Strip the tree/branch or blob/branch prefix to get the actual subdir
 	subdir = stripGitHubBranchPrefix(subdir)
 
+	// Normalize "." subdir (explicit root) to empty string
+	if subdir == "." {
+		subdir = ""
+	}
+
 	source.Type = SourceTypeGitHub
 	source.CloneURL = fmt.Sprintf("https://github.com/%s/%s.git", owner, repo)
 
@@ -214,7 +219,7 @@ func parseGitSSH(matches []string, source *Source) (*Source, error) {
 
 func parseFileURL(matches []string, source *Source) (*Source, error) {
 	// matches: [full, path]
-	path := matches[1]
+	path := filepath.Clean(matches[1])
 
 	source.Type = SourceTypeGitHTTPS // Treat as git for cloning
 	source.CloneURL = "file://" + path
@@ -231,6 +236,11 @@ func parseGitHTTPS(matches []string, source *Source) (*Source, error) {
 	subdir := ""
 	if len(matches) > 4 {
 		subdir = matches[4]
+	}
+
+	// Normalize "." subdir (explicit root) to empty string
+	if subdir == "." {
+		subdir = ""
 	}
 
 	source.Type = SourceTypeGitHTTPS

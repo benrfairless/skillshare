@@ -256,24 +256,61 @@ func handleGitDiscovery(source *install.Source, cfg *config.Config, opts install
 
 	ui.StepEnd("Found", fmt.Sprintf("%d skill(s)", len(discovery.Skills)))
 
-	// Single skill: show detailed box
+	if opts.Name != "" && len(discovery.Skills) != 1 {
+		return fmt.Errorf("--name can only be used when exactly one skill is discovered")
+	}
+
+	// Single skill: show detailed box and install directly
 	if len(discovery.Skills) == 1 {
 		skill := discovery.Skills[0]
+		if opts.Name != "" {
+			if err := validate.SkillName(opts.Name); err != nil {
+				return fmt.Errorf("invalid skill name '%s': %w", opts.Name, err)
+			}
+			skill.Name = opts.Name
+		}
+
 		loc := skill.Path
 		if loc == "." {
 			loc = "root"
 		}
 		fmt.Println()
 		ui.SkillBox(skill.Name, "", loc)
+
+		destPath := filepath.Join(cfg.Source, skill.Name)
+		fmt.Println()
+
+		installSpinner := ui.StartSpinner(fmt.Sprintf("Installing %s...", skill.Name))
+		result, err := install.InstallFromDiscovery(discovery, skill, destPath, opts)
+		if err != nil {
+			installSpinner.Fail("Failed to install")
+			return err
+		}
+
+		if opts.DryRun {
+			installSpinner.Stop()
+			ui.Warning("[dry-run] %s", result.Action)
+		} else {
+			installSpinner.Success(fmt.Sprintf("Installed: %s", skill.Name))
+		}
+
+		for _, warning := range result.Warnings {
+			ui.Warning("%s", warning)
+		}
+
+		if !opts.DryRun {
+			fmt.Println()
+			ui.Info("Run 'skillshare sync' to distribute to all targets")
+		}
+
+		return nil
 	}
 
 	if opts.DryRun {
 		// Show skill list in dry-run mode
-		if len(discovery.Skills) > 1 {
-			fmt.Println()
-			for _, skill := range discovery.Skills {
-				ui.SkillBoxCompact(skill.Name, skill.Path)
-			}
+		fmt.Println()
+		for _, skill := range discovery.Skills {
+			ui.SkillBoxCompact(skill.Name, skill.Path)
 		}
 		fmt.Println()
 		ui.Warning("[dry-run] Would prompt for selection")
@@ -522,12 +559,15 @@ func handleGitSubdirInstall(source *install.Source, cfg *config.Config, opts ins
 	// If only one skill found, install directly
 	if len(discovery.Skills) == 1 {
 		skill := discovery.Skills[0]
+		if opts.Name != "" {
+			if err := validate.SkillName(opts.Name); err != nil {
+				return fmt.Errorf("invalid skill name '%s': %w", opts.Name, err)
+			}
+			skill.Name = opts.Name
+		}
 		ui.StepEnd("Found", fmt.Sprintf("1 skill: %s", skill.Name))
 
 		destPath := filepath.Join(cfg.Source, skill.Name)
-		if opts.Name != "" {
-			destPath = filepath.Join(cfg.Source, opts.Name)
-		}
 
 		fmt.Println()
 		installSpinner := ui.StartSpinner(fmt.Sprintf("Installing %s...", skill.Name))
@@ -563,6 +603,10 @@ func handleGitSubdirInstall(source *install.Source, cfg *config.Config, opts ins
 	}
 
 	ui.StepEnd("Found", fmt.Sprintf("%d skill(s)", len(discovery.Skills)))
+
+	if opts.Name != "" {
+		return fmt.Errorf("--name can only be used when exactly one skill is discovered")
+	}
 
 	if opts.DryRun {
 		fmt.Println()
@@ -675,7 +719,7 @@ Sources:
   ~/path/to/skill            Local directory
 
 Options:
-  --name <name>       Override the skill name (only for direct install)
+  --name <name>       Override installed name when exactly one skill is installed
   --force, -f         Overwrite if skill already exists
   --update, -u        Update existing (git pull if possible, else reinstall)
   --track, -t         Install as tracked repo (preserves .git for updates)

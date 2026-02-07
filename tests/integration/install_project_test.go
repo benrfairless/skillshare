@@ -105,3 +105,13 @@ func TestInstallProject_FromConfig_EmptySkills(t *testing.T) {
 	result.AssertSuccess(t)
 	result.AssertAnyOutputContains(t, "No remote skills")
 }
+
+func TestInstallProject_NoSource_WithName_Errors(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	projectRoot := sb.SetupProjectDir("claude-code")
+
+	result := sb.RunCLIInDir(projectRoot, "install", "-p", "--name", "custom")
+	result.AssertFailure(t)
+	result.AssertAnyOutputContains(t, "--name requires a source")
+}

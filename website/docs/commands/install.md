@@ -114,6 +114,8 @@ skillshare install -p    # Install all remote skills from config
 skillshare sync          # Sync to targets
 ```
 
+When using no-arg project install (`skillshare install -p`), `--name` is not supported because multiple configured skills may be installed.
+
 **Tracked repos in project mode** work the same as global — the repo is cloned with `.git` preserved and added to `.skillshare/.gitignore`:
 
 ```bash
@@ -127,7 +129,7 @@ See [Project Setup](/docs/guides/project-setup) for the full guide.
 
 | Flag | Short | Description |
 |------|-------|-------------|
-| `--name <name>` | | Custom name for the skill |
+| `--name <name>` | | Override installed name when exactly one skill is installed |
 | `--force` | `-f` | Overwrite existing skill |
 | `--update` | `-u` | Update if exists (git pull or reinstall) |
 | `--track` | `-t` | Keep `.git` for tracked repos |
@@ -140,6 +142,16 @@ See [Project Setup](/docs/guides/project-setup) for the full guide.
 ```bash
 skillshare install google-gemini/gemini-cli/.../skill-creator --name my-creator
 # Installed as: ~/.config/skillshare/skills/my-creator/
+```
+
+`--name` only works when install resolves to a single skill.
+
+```bash
+# ✅ Single skill (works)
+skillshare install comeonzhj/Auto-Redbook-Skills --name haha
+
+# ❌ Multiple discovered skills (errors)
+skillshare install anthropics/skills --name my-skill
 ```
 
 **Force overwrite existing:**

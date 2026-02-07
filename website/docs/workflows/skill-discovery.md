@@ -132,6 +132,9 @@ skillshare install anthropics/skills/skills/pdf --update
 skillshare install github.com/team/skills --track
 ```
 
+`--name` is valid only when the install target is a single skill.  
+Using `--name` with repo discovery that returns multiple skills will return an error.
+
 ---
 
 ## After Installing

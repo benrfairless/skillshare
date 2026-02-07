@@ -1,41 +1,81 @@
 [tools]
 go = "1.25.5"
 
+[tasks.help]
+description = "Show common development tasks"
+run = """
+echo "Common tasks:"
+echo "  mise run build          # build binary"
+echo "  mise run run            # run local binary help"
+echo "  mise run test           # unit + integration tests"
+echo "  mise run test:unit      # unit tests only"
+echo "  mise run test:int       # integration tests only"
+echo "  mise run test:cover     # tests with coverage"
+echo "  mise run test:install   # install.sh sandbox tests"
+echo "  mise run lint           # go vet"
+echo "  mise run fmt            # format Go files"
+echo "  mise run fmt:check      # verify formatting only"
+echo "  mise run check          # fmt:check + lint + test"
+echo "  mise run clean          # remove build artifacts"
+"""
+
 [tasks.build]
 description = "Build the skillshare binary"
 run = "mkdir -p bin && go build -o bin/skillshare ./cmd/skillshare"
 
-[tasks.test]
-description = "Run all tests"
+[tasks."build:meta"]
+description = "Build with version metadata"
+run = "./scripts/build.sh"
+
+[tasks.run]
+description = "Run skillshare help using the local binary"
 depends = ["build"]
-run = "SKILLSHARE_TEST_BINARY=$(pwd)/bin/skillshare go test -v ./..."
+run = "./bin/skillshare --help"
+
+[tasks.test]
+description = "Run unit and integration tests"
+run = "./scripts/test.sh"
 
 [tasks."test:unit"]
 description = "Run unit tests only"
-run = "go test -v ./internal/..."
+run = "./scripts/test.sh --unit"
 
 [tasks."test:int"]
 description = "Run integration tests only"
-depends = ["build"]
-run = "SKILLSHARE_TEST_BINARY=$(pwd)/bin/skillshare go test -v ./tests/integration/..."
+run = "./scripts/test.sh --int"
 
 [tasks."test:cover"]
 description = "Run tests with coverage"
-depends = ["build"]
-run = "SKILLSHARE_TEST_BINARY=$(pwd)/bin/skillshare go test -cover ./..."
+run = "./scripts/test.sh --cover"
 
-[tasks.clean]
-description = "Clean build artifacts"
-run = "rm -rf bin/"
+[tasks."test:install"]
+description = "Run install.sh sandbox tests"
+run = "./scripts/test_install.sh"
 
 [tasks.lint]
-description = "Run linter"
+description = "Run go vet"
 run = "go vet ./..."
 
 [tasks.fmt]
-description = "Format code"
-run = "go fmt ./..."
+description = "Format Go files"
+run = "gofmt -w ./cmd ./internal ./tests"
+
+[tasks."fmt:check"]
+description = "Check Go formatting (no changes)"
+run = "test -z \"$(gofmt -l ./cmd ./internal ./tests)\""
+
+[tasks.check]
+description = "Run formatting check, lint, and tests"
+depends = ["fmt:check", "lint", "test"]
 
 [tasks.install]
 description = "Install skillshare to GOPATH/bin"
 run = "go install ./cmd/skillshare"
+
+[tasks.clean]
+description = "Clean build artifacts"
+run = "rm -rf bin coverage.out"
+
+[tasks.default]
+description = "Show task help"
+depends = ["help"]

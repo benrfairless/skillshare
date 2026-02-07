@@ -175,8 +175,16 @@ func DiscoverFromGit(source *Source) (*DiscoveryResult, error) {
 		return nil, fmt.Errorf("failed to clone repository: %w", err)
 	}
 
-	// Discover skills (exclude root for whole-repo discovery)
-	skills := discoverSkills(repoPath, false)
+	// Discover skills (include root to support single-skill-at-root repos)
+	skills := discoverSkills(repoPath, true)
+
+	// Fix root skill name: temp dir gives random name, use source.Name instead
+	for i := range skills {
+		if skills[i].Path == "." {
+			skills[i].Name = source.Name
+			break
+		}
+	}
 
 	return &DiscoveryResult{
 		RepoPath: tempDir,
