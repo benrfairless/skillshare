@@ -30,7 +30,13 @@ echo "  mise run clean          # remove build artifacts"
 
 [tasks.build]
 description = "Build the skillshare binary"
-run = "mkdir -p bin && go build -o bin/skillshare ./cmd/skillshare"
+run = """
+if [ ! -f internal/server/dist/index.html ]; then
+  mkdir -p internal/server/dist
+  printf '<!DOCTYPE html><html><body><h1>UI not built</h1><p>Run: mise run build:ui</p></body></html>' > internal/server/dist/index.html
+fi
+mkdir -p bin && go build -o bin/skillshare ./cmd/skillshare
+"""
 
 [tasks."build:meta"]
 description = "Build with version metadata"

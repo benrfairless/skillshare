@@ -25,6 +25,10 @@ help:
 	@echo "  make clean                # remove build artifacts"
 
 build:
+	@if [ ! -f internal/server/dist/index.html ]; then \
+		mkdir -p internal/server/dist && \
+		printf '<!DOCTYPE html><html><body><h1>UI not built</h1><p>Run: make build-ui</p></body></html>' > internal/server/dist/index.html; \
+	fi
 	mkdir -p bin && go build -o bin/skillshare ./cmd/skillshare
 
 build-meta:
