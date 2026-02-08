@@ -9,7 +9,9 @@ description: |
   "push/pull skills", "add/remove target", "find a skill for X", "is there a skill that can...",
   "how do I do X with skills", "skillshare init", "skillshare upgrade", "skill not syncing",
   "diagnose skillshare", "doctor", "project skills", "init project", "project setup",
-  "scope skills to repo", "share skills via git", or any skill/target management across AI tools.
+  "scope skills to repo", "share skills via git", "web dashboard", "skillshare ui",
+  "launch dashboard", "open ui", "visual skill management",
+  or any skill/target management across AI tools.
 argument-hint: "[command] [target] [--dry-run] [-p|-g]"
 ---
 
@@ -46,6 +48,7 @@ skillshare sync
 | **Skills** | `new`, `install`, `uninstall`, `update`, `search` | ✓ (`-p`) |
 | **Targets** | `target add/remove/list` | ✓ (`-p`) |
 | **Backup** | `backup`, `restore` | ✗ |
+| **Web UI** | `ui` | ✓ (`-p`) |
 | **Upgrade** | `upgrade [--cli\|--skill]` | — |
 
 **Workflow:** Most commands require `sync` afterward to distribute changes.
@@ -96,4 +99,5 @@ skillshare search <query> --json    # JSON output
 | Status/diff/list/search | [status.md](references/status.md) |
 | Target management | [targets.md](references/targets.md) |
 | Backup/restore | [backup.md](references/backup.md) |
+| Web dashboard (UI) | [ui.md](references/ui.md) |
 | Troubleshooting | [TROUBLESHOOTING.md](references/TROUBLESHOOTING.md) |

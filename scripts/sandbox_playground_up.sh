@@ -36,8 +36,8 @@ docker compose -f "$COMPOSE_FILE" --profile playground exec --user "$(id -u):$(i
       mkdir -p "$DEMO"
       cd "$DEMO"
 
-      # Initialize project mode with claude target (non-interactive)
-      skillshare init -p --targets claude
+      # Initialize project mode with claude-code target (non-interactive)
+      skillshare init -p --targets claude-code
 
       # Create a sample skill
       mkdir -p .skillshare/skills/hello-world
