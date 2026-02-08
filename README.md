@@ -19,8 +19,8 @@
 </p>
 
 <p align="center">
-  <strong>One source of truth for AI CLI skills. Sync everywhere with one command — from personal to organization-wide.</strong><br>
-  Claude Code, OpenClaw, OpenCode & 40+ more.
+  <strong>One source of truth for AI CLI skills.</strong><br>
+  Sync once, use everywhere: Claude Code, Codex, Cursor, OpenCode, and more.
 </p>
 
 <p align="center">
@@ -31,10 +31,11 @@
   <a href="https://skillshare.runkids.cc">Website</a> •
   <a href="#installation">Install</a> •
   <a href="#quick-start">Quick Start</a> •
-  <a href="#commands">Commands</a> •
+  <a href="#cli-and-ui-preview">Screenshots</a> •
+  <a href="#common-workflows">Commands</a> •
   <a href="#web-dashboard">Web UI</a> •
-  <a href="#project-skills">Project Skills</a> •
-  <a href="#organization-skills">Organization Skills</a> •
+  <a href="#project-skills-per-repo">Project Skills</a> •
+  <a href="#organization-skills-tracked-repo">Organization Skills</a> •
   <a href="https://skillshare.runkids.cc/docs">Docs</a>
 </p>
 
@@ -46,36 +47,53 @@
 > | [0.9.0](https://github.com/runkids/skillshare/releases/tag/v0.9.0) | Project-level skills — scope skills to a single repo, share via git |
 > | [0.8.0](https://github.com/runkids/skillshare/releases/tag/v0.8.0) | `pull` → `collect` rename, clearer command symmetry, refactoring |
 
-## Why skillshare?
+## Why skillshare
 
-Install tools get skills onto agents. **Skillshare keeps them in sync.**
+Stop managing skills tool-by-tool.
+`skillshare` gives you one shared skill source and pushes it everywhere your AI agents work.
 
-| Feature | Description |
-|---------|-------------|
-| 🔗 **Non-destructive Merge** | Sync shared skills while preserving CLI-specific ones. Per-skill symlinks keep local skills untouched. |
-| ↔️ **Bidirectional Sync** | Created a skill in Claude? Collect it back to source and share with OpenClaw, OpenCode, and others. |
-| 🌐 **Cross-machine Sync** | One git push/pull syncs skills across all your machines. No re-running install commands. |
-| 📦 **Unified Source** | Local skills and installed skills live together in one directory. No separate management. |
-| 👥 **Organization Skills** | Install shared repos once, update anytime with git pull. Changes sync to all agents instantly. |
-| 📁 **Project Skills** | Scope skills to a repo, share via git. Auto-detected when you `cd` into the project. |
-| ✨ **AI-Native** | Built-in skill lets AI operate skillshare directly. No manual CLI needed. |
-| 🖥️ **Web Dashboard** | Visual skill browsing, sync status, and management. Run `skillshare ui` — single binary, no setup. |
+- **One command, everywhere**: Sync to Claude Code, Codex, Cursor, OpenCode, and more with `skillshare sync`.
+- **Safe by default**: Non-destructive merge mode keeps CLI-local skills intact while sharing team skills.
+- **True bidirectional flow**: Pull skills back from targets with `collect` so improvements never get trapped in one tool.
+- **Cross-machine ready**: Git-native `push`/`pull` keeps all your devices aligned.
+- **Team + project friendly**: Use global skills for personal workflows and `.skillshare/` for repo-scoped collaboration.
+- **Visual control panel**: Open `skillshare ui` for browsing, install, target management, and sync status in one place.
+
+## CLI and UI Preview
+
+### CLI
+
+| Status | Search |
+|---|---|
+| <img src=".github/assets/status-demo.png" alt="CLI status command output" width="100%"> | <img src=".github/assets/search-demo.png" alt="CLI search command output" width="100%"> |
+
+### UI
+
+| Dashboard | Skills |
+|---|---|
+| <img src=".github/assets/ui/web-dashboard-demo.png" alt="Web dashboard overview" width="100%"> | <img src=".github/assets/ui/web-skills-demo.png" alt="Web UI skills browser" width="100%"> |
+
+### Windows
+
+<p align="left">
+  <img src=".github/assets/windows-init.png" alt="Windows initialization demo" width="720">
+</p>
 
 ## Installation
 
-### Quick Install (macOS/Linux)
+### macOS / Linux
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh
 ```
 
-### Quick Install (Windows PowerShell)
+### Windows PowerShell
 
 ```powershell
 irm https://raw.githubusercontent.com/runkids/skillshare/main/install.ps1 | iex
 ```
 
-### Homebrew (macOS)
+### Homebrew
 
 ```bash
 brew install runkids/tap/skillshare
@@ -94,346 +112,170 @@ Remove-Item "$env:LOCALAPPDATA\Programs\skillshare" -Recurse -Force
 Remove-Item "$env:USERPROFILE\.config\skillshare" -Recurse -Force  # optional
 ```
 
-### Shorthand (Optional)
-
-Add an alias to your shell config (`~/.zshrc` or `~/.bashrc`):
-
-```bash
-alias ss='skillshare'
-```
-
 ## Quick Start
 
 ```bash
 skillshare init --dry-run  # Preview setup
-skillshare init            # Auto-detects CLIs, sets up git
-skillshare sync            # Sync to all targets
+skillshare init            # Create config, source, and detected targets
+skillshare sync            # Sync skills to all targets
 ```
 
-Done. Your skills are now synced across all AI CLI tools.
+Default source directory:
 
-## How It Works
+- macOS / Linux: `~/.config/skillshare/skills/`
+- Windows: `%USERPROFILE%\.config\skillshare\skills\`
 
+## Common Workflows
+
+### Daily Commands
+
+| Command | What it does |
+|---------|---------------|
+| `skillshare list` | List skills in source |
+| `skillshare status` | Show sync status for all targets |
+| `skillshare sync` | Sync source skills to all targets |
+| `skillshare diff` | Preview differences before syncing |
+| `skillshare doctor` | Diagnose config/environment issues |
+| `skillshare new <name>` | Create a new skill template |
+| `skillshare install <source>` | Install skill from local path or git source |
+| `skillshare collect [target]` | Import skills from target(s) back to source |
+| `skillshare update <name>` | Update one installed skill/repo |
+| `skillshare update --all` | Update all tracked repos |
+| `skillshare uninstall <name>` | Remove skill from source |
+| `skillshare search <query>` | Search installable skills on GitHub |
+
+`skillshare search` requires GitHub auth (`gh auth login`) or `GITHUB_TOKEN`.
+
+### Target Management
+
+```bash
+skillshare target list
+skillshare target add my-tool ~/.my-tool/skills
+skillshare target remove my-tool
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                       Source Directory                      │
-│                 ~/.config/skillshare/skills/                │
-└─────────────────────────────────────────────────────────────┘
-                              │ sync
-              ┌───────────────┼───────────────┐
-              ▼               ▼               ▼
-       ┌───────────┐   ┌───────────┐   ┌───────────┐
-       │  Claude   │   │  OpenCode │   │ OpenClaw  │   ...
-       └───────────┘   └───────────┘   └───────────┘
+
+### Backup and Restore
+
+```bash
+skillshare backup
+skillshare backup --list
+skillshare restore <target>
 ```
 
-| Platform | Source Path | Link Type |
-|----------|-------------|-----------|
-| macOS/Linux | `~/.config/skillshare/skills/` | Symlinks |
-| Windows | `%USERPROFILE%\.config\skillshare\skills\` | NTFS Junctions (no admin required) |
+### Cross-machine Git Sync
 
-<p>
-  <img src=".github/assets/windows-init.png" alt="Windows init demo" width="720">
-</p>
+```bash
+skillshare push
+skillshare pull
+```
 
-## Documentation
+### Project Skills (Per Repo)
 
-📖 **Full documentation at [skillshare.runkids.cc](https://skillshare.runkids.cc/docs/intro)**
+```bash
+skillshare init -p
+skillshare new my-skill -p
+skillshare install anthropics/skills/skills/pdf -p
+skillshare sync
+```
 
-| Guide | Description |
-|-------|-------------|
-| [Getting Started](https://skillshare.runkids.cc/docs/intro) | Quick start guide |
-| [Commands](https://skillshare.runkids.cc/docs/commands/init) | All CLI commands |
-| [Web Dashboard](https://skillshare.runkids.cc/docs/commands/ui) | Visual skill management via browser |
-| [Project Skills](https://skillshare.runkids.cc/docs/guides/project-setup) | Project-level skills setup |
-| [Organization Skills](https://skillshare.runkids.cc/docs/guides/organization-sharing) | Organization-wide sharing with tracked repos |
-| [Cross-machine](https://skillshare.runkids.cc/docs/guides/cross-machine-sync) | Multi-machine sync |
-| [Docker Sandbox](https://skillshare.runkids.cc/docs/guides/docker-sandbox) | Test sandbox and interactive playground |
-| [FAQ](https://skillshare.runkids.cc/docs/troubleshooting/faq) | FAQ & troubleshooting |
+Project mode keeps skills in `.skillshare/skills/` so they can be committed and shared with the repo.
 
-## Commands
+### Organization Skills (Tracked Repo)
 
-| Command | Description |
-|---------|-------------|
-| `init` | Initialize, auto-detect CLIs, setup git |
-| `new <name>` | Create a new skill with SKILL.md template |
-| `search <query>` | Search GitHub for skills |
-| `sync` | Sync skills to all targets |
-| `collect <target>` | Collect skills from target back to source |
-| `push` | Push to git remote (cross-machine) |
-| `pull` | Pull from git remote and sync |
-| `install <source>` | Install skill from path or git repo |
-| `uninstall <name>` | Remove skill from source |
-| `update <name>` | Update skill or tracked repo |
-| `list` | List installed skills |
-| `status` | Show sync state |
-| `doctor` | Diagnose issues |
-| `upgrade` | Upgrade CLI and skill |
-| `ui` | [Launch web dashboard](#web-dashboard) |
+```bash
+skillshare install github.com/team/skills --track
+skillshare update _team-skills
+skillshare sync
+```
 
 ## Web Dashboard
-
-Launch a visual dashboard to browse skills, manage targets, sync, search, and edit config — all from your browser.
 
 ```bash
 skillshare ui
 ```
 
-Opens `http://localhost:19420` with a full-featured React dashboard embedded in the binary. No Node.js or extra setup required.
+- Opens `http://127.0.0.1:19420`
+- Requires `skillshare init` first
+- Runs from the same CLI binary (no extra frontend setup)
 
-| Page | What you can do |
-|------|----------------|
-| Dashboard | Overview of skills, targets, sync mode, version |
-| Skills | Browse and filter skills, view SKILL.md content, uninstall |
-| Install | Install from local path, git URL, or GitHub shorthand |
-| Targets | View status, add/remove targets |
-| Sync | Run sync with dry-run/force toggles, preview diffs |
-| Collect | Collect skills from targets back to source with picker flow |
-| Backup | Browse backups, restore, and clean up old snapshots |
-| Git Sync | Push/pull source repo, check dirty state, force pull when needed |
-| Search | Search GitHub for skills, one-click install |
-| Config | Edit config.yaml with validation |
-
-### UI Preview
-
-| Install Flow | Dashboard Overview |
-|---|---|
-| <img src=".github/assets/ui/web-install-demo.png" alt="web install flow" width="100%"> | <img src=".github/assets/ui/web-dashboard-demo.png" alt="web dashboard overview" width="100%"> |
-
-| Skills Browser | Skill Detail |
-|---|---|
-| <img src=".github/assets/ui/web-skills-demo.png" alt="web skills browser" width="100%"> | <img src=".github/assets/ui/web-skill-detail-demo.png" alt="web skill detail" width="100%"> |
-
-| Sync Controls | Search Skills |
-|---|---|
-| <img src=".github/assets/ui/web-sync-demo.png" alt="web sync controls" width="100%"> | <img src=".github/assets/ui/web-search-skills-demo.png" alt="web search skills" width="100%"> |
-
-Also works in Docker: `skillshare ui --host 0.0.0.0 --no-open` (port 19420 is mapped).
-
----
-
-## Docker Sandbox Testing
-
-Use Docker to run reproducible tests in an isolated environment.
-
-Guide: [Docker Sandbox Guide](https://skillshare.runkids.cc/docs/guides/docker-sandbox)
-
-With `mise`:
+For containers/remote hosts:
 
 ```bash
-mise run test:docker
+skillshare ui --host 0.0.0.0 --no-open
 ```
 
-With `make`:
+Then access: `http://localhost:19420`
+
+## Docker Sandbox
+
+Use Docker for reproducible offline testing and an interactive playground.
+
+### Offline test pipeline
 
 ```bash
 make test-docker
+# or
+./scripts/test_docker.sh
 ```
 
-This offline sandbox runs Go `build + unit + integration` with `network_mode: none`.
-It covers install/update flows based on local paths and `file://` git repositories.
-
-Run optional network-dependent install/update checks separately:
-
-With `mise`:
-
-```bash
-mise run test:docker:online
-```
-
-With `make`:
+### Optional online install/update checks
 
 ```bash
 make test-docker-online
+# or
+./scripts/test_docker_online.sh
 ```
 
-You can also pass custom commands:
-
-```bash
-./scripts/test_docker.sh --cmd "go test -v ./tests/integration/..."
-./scripts/test_docker_online.sh --cmd "go test -v -tags online ./tests/integration/... -run TestInstall_Remote"
-```
-
-### Interactive Playground
-
-Use a dedicated persistent container for manually exploring skillshare commands.
-
-With `mise`:
-
-```bash
-mise run sandbox:up
-mise run sandbox:shell
-```
-
-With `make`:
+### Interactive playground
 
 ```bash
 make sandbox-up
 make sandbox-shell
-```
-
-Inside the container you can run directly (no manual build needed):
-
-```bash
-skillshare --help
-ss --help
-skillshare init --dry-run
-skillshare ui --host 0.0.0.0 --no-open  # Web UI at http://localhost:19420
-```
-
-Stop the playground when done:
-
-With `mise`:
-
-```bash
-mise run sandbox:down
-```
-
-With `make`:
-
-```bash
 make sandbox-down
 ```
 
-### Target Management
+Inside the playground:
 
 ```bash
-skillshare target list                    # List targets
-skillshare target add myapp ~/.myapp/skills  # Add custom target
-skillshare target remove claude           # Safely unlink
+skillshare --help
+skillshare init --dry-run
+skillshare ui --host 0.0.0.0 --no-open
 ```
 
----
-
-## AI-Native
-
-The built-in [`skillshare` skill](https://github.com/runkids/skillshare/tree/main/skills/skillshare) teaches your AI how to manage skills. The binary auto-downloads on first use.
-
-```
-User: "sync my skills to all targets"
-       │
-       ▼
-AI reads skillshare skill → runs: skillshare sync
-       │
-       ▼
-✓ Synced 5 skills to claude, codex, cursor
-```
-
-> **Try it:** *"Show my skillshare status"*, *"Collect skills from Claude"*, *"Install the pdf skill from anthropics/skills"*
-
----
-
-## Search Skills
-
-Discover and install skills from GitHub with interactive search.
+## Development
 
 ```bash
-skillshare search runkids
+go build -o bin/skillshare ./cmd/skillshare
+go test ./...
+go vet ./...
+gofmt -w ./cmd ./internal ./tests
 ```
 
-<p align="left">
-  <img src=".github/assets/search-demo.png" alt="search demo" width="720">
-</p>
-
-**Features:**
-- **Smart ranking** — Results sorted by repository stars
-- **Interactive selector** — Arrow keys to navigate, Enter to install
-- **Continuous search** — Search again without restarting
-- **Filter forks** — Only shows original repositories
+Using `make`:
 
 ```bash
-skillshare search pdf --list      # List only, no install prompt
-skillshare search react --json    # JSON output for scripting
-skillshare search commit -n 5     # Limit results
+make build
+make test
+make lint
+make fmt
+make check
 ```
 
-> **Note:** Requires GitHub authentication. Run `gh auth login` or set `GITHUB_TOKEN`.
-
-See [Search Guide](https://skillshare.runkids.cc/docs/commands/search) for details.
-
----
-
-## Project Skills
-
-Scope skills to a single repository — shared with your team via git.
+UI development helpers:
 
 ```bash
-# Initialize project-level skills
-skillshare init -p
-
-# Create or install skills
-skillshare new my-skill -p
-skillshare install anthropics/skills/skills/pdf -p
-
-# Sync to targets
-skillshare sync
+make ui-install
+make ui-build
+make ui-dev
+make build-ui
 ```
 
-**Features:**
-- **Project-scoped** — Skills live in `.skillshare/skills/`, committed to the project repo
-- **Auto-detection** — Commands auto-detect project mode when `.skillshare/` exists
-- **Team onboarding** — New members run `skillshare install -p && skillshare sync`
-- **Coexists with global** — Project and global skills work independently
+## Documentation
 
-See [Project Skills Guide](https://skillshare.runkids.cc/docs/guides/project-setup) for details.
-
----
-
-## Organization Skills
-
-Share skills across your organization with tracked repositories.
-
-```bash
-# Install team repo
-skillshare install github.com/team/skills --track
-
-# Update later
-skillshare update _team-skills
-skillshare sync
-```
-
-**Features:**
-- **Tracked repos** — Clone with `.git`, update via `git pull`
-- **Nested skills** — `team/frontend/ui` → `team__frontend__ui`
-- **Auto-pruning** — Orphaned symlinks removed on sync
-- **Collision detection** — Warns about duplicate skill names
-
-See [Organization Skills Guide](https://skillshare.runkids.cc/docs/guides/organization-sharing) for details.
-
----
-
-## FAQ
-
-**What if I modify a skill in a target directory?**
-
-Since targets are linked to source, you're editing the source directly. All targets see changes immediately.
-
-**How do I keep CLI-specific skills?**
-
-Use `merge` mode (default). Local skills in targets are preserved.
-
-**Accidentally deleted a skill?**
-
-Recover with git: `cd ~/.config/skillshare/skills && git checkout -- deleted-skill/`
-
-**Windows: Do I need admin privileges?**
-
-No. skillshare uses NTFS junctions (not symlinks), which don't require elevated permissions.
-
-See [FAQ & Troubleshooting](https://skillshare.runkids.cc/docs/troubleshooting/faq) for more.
-
----
-
-## Common Issues
-
-| Issue | Solution |
-|-------|----------|
-| `config not found` | Run `skillshare init` |
-| Deleted source via symlink | Use `skillshare target remove`, recover via git |
-| Target exists with files | Run `skillshare backup` first |
-| Skill not appearing | Run `skillshare doctor`, restart CLI |
-
----
+- Docs home: https://skillshare.runkids.cc/docs/intro
+- Commands: https://skillshare.runkids.cc/docs/category/commands
+- Guides: https://skillshare.runkids.cc/docs/category/guides
+- Troubleshooting: https://skillshare.runkids.cc/docs/troubleshooting/faq
 
 ## Contributing
 
@@ -444,13 +286,7 @@ go build -o bin/skillshare ./cmd/skillshare
 go test ./...
 ```
 
-[Open an issue](https://github.com/runkids/skillshare/issues) for bugs or feature requests.
-
-If you find skillshare useful, consider giving it a ⭐
-
-## Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=runkids/skillshare&type=date&legend=top-left)](https://www.star-history.com/#runkids/skillshare&type=date&legend=top-left)
+Issues and PRs are welcome: https://github.com/runkids/skillshare/issues
 
 ## License
 
