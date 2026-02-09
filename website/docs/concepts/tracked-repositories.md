@@ -149,7 +149,7 @@ skillshare uninstall _team-skills
 
 ## Project Mode
 
-Tracked repos also work in project mode. The repo is cloned into `.skillshare/skills/` and added to `.skillshare/.gitignore` (so the tracked repo's git history doesn't conflict with your project's git).
+Tracked repos also work in project mode. The repo is cloned into `.skillshare/skills/` and added to `.skillshare/.gitignore` (so the tracked repo's git history doesn't conflict with your project's git). Project logs (`.skillshare/logs/`) are also ignored by default.
 
 Installing a tracked repo auto-records `tracked: true` in `.skillshare/config.yaml`, so new team members get the correct clone behavior via `skillshare install -p`:
 
@@ -182,13 +182,15 @@ skillshare uninstall team-skills -p
 ```
 <project-root>/
 └── .skillshare/
-    ├── .gitignore           # Contains: skills/_team-skills
+    ├── .gitignore           # Contains: logs/ and skills/_team-skills
     └── skills/
         └── _team-skills/    # Tracked repo with .git/ preserved
             ├── .git/
             ├── frontend/ui/
             └── backend/api/
 ```
+
+If you intentionally want to commit project logs, add `!logs/` and `!logs/*.log` after the managed block in `.skillshare/.gitignore`.
 
 Nested skills are auto-flattened the same way as global mode — `_team-skills/frontend/ui` becomes `_team-skills__frontend__ui` in targets.
 

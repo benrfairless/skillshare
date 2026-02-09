@@ -12,6 +12,10 @@
   - Install flow shows `ConfirmDialog` on CRITICAL block with "Force Install" option
   - Warning dialog displays HIGH/MEDIUM findings after successful install
 - **Audit API** — `GET /api/audit` and `GET /api/audit/{name}` endpoints
+- **Operation log (persistent audit trail)** — JSONL-based operations/audit logging across CLI + API + Web UI
+  - CLI: `skillshare log` (`--audit`, `--tail`, `--clear`, `-p/-g`)
+  - API: log list/clear endpoints for operations and audit streams
+  - Web UI: Log page with tabs, filters, status/duration formatting, and clear/refresh actions
 - **Sync drift detection** — `status` and `doctor` warn when targets have fewer linked skills than source
   - Web UI shows drift badges on Dashboard and Targets pages
 - **Trash (soft-delete) workflow** — uninstall now moves skills to trash with 7-day retention
@@ -36,6 +40,11 @@
 - **Search command UX** — running `search` with no keyword now prompts for input instead of auto-browsing
 - **Sandbox hardening** — playground shell defaults to home and mounts source read-only to reduce accidental host edits
 - **Project mode clarity** — `(project)` labels added across key command outputs; uninstall prompt now explicitly says "from the project?"
+- **Project tracked-repo workflow reliability**
+  - `ProjectSkill` now supports `tracked: true` for portable project manifests
+  - Reconcile logic now detects tracked repos via `.git` + remote origin even when metadata files are absent
+  - Tracked repo naming uses `owner-repo` style (for example, `_openai-skills`) to avoid basename collisions
+  - Project `list` now uses recursive skill discovery for parity with global mode and Web UI
 - **Privacy-first messaging + UI polish** — homepage/README messaging updated, dashboard quick actions aligned, and website hero/logo refreshed with a new hand-drawn style
 - `ConfirmDialog` component supports `wide` prop and hidden cancel button
 - Sidebar category renamed from "Utilities" to "Security & Utilities"
@@ -46,6 +55,8 @@
 - Web UI uninstall handlers now use trash move semantics instead of permanent deletion
 - Windows self-upgrade now shows a clear locked-binary hint when rename fails (for example, when `skillshare ui` is still running)
 - `mise.toml` `ui:build` path handling fixed so `cd ui` does not leak into subsequent build steps
+- Sync log details now include target count, fixing blank details in some entries
+- Project tracked repos are no longer skipped during reconcile when metadata is missing
 
 ## [0.10.0] - 2026-02-08
 

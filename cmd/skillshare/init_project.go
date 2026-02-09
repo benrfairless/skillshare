@@ -9,6 +9,7 @@ import (
 
 	"github.com/AlecAivazis/survey/v2"
 	"skillshare/internal/config"
+	"skillshare/internal/install"
 	"skillshare/internal/ui"
 )
 
@@ -400,13 +401,17 @@ func reinitProjectWithDiscover(root string, opts projectInitOptions) error {
 }
 
 func ensureProjectGitignore(root string) error {
-	gitignorePath := filepath.Join(root, ".skillshare", ".gitignore")
-	if _, err := os.Stat(gitignorePath); err == nil {
-		return nil
+	gitignoreDir := filepath.Join(root, ".skillshare")
+	gitignorePath := filepath.Join(gitignoreDir, ".gitignore")
+	if _, err := os.Stat(gitignorePath); os.IsNotExist(err) {
+		if err := os.WriteFile(gitignorePath, []byte(""), 0644); err != nil {
+			return fmt.Errorf("failed to create .skillshare/.gitignore: %w", err)
+		}
 	}
 
-	if err := os.WriteFile(gitignorePath, []byte(""), 0644); err != nil {
-		return fmt.Errorf("failed to create .skillshare/.gitignore: %w", err)
+	// Always ignore project logs to avoid committing operational noise.
+	if err := install.UpdateGitIgnore(gitignoreDir, "logs"); err != nil {
+		return fmt.Errorf("failed to update .skillshare/.gitignore: %w", err)
 	}
 
 	return nil

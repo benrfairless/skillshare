@@ -161,7 +161,7 @@ skillshare sync          # Sync to targets
 
 When using no-arg project install (`skillshare install -p`), `--name` is not supported because multiple configured skills may be installed. Skills with `tracked: true` in the config are cloned with full git history (same as `--track`), so `skillshare update` works correctly.
 
-**Tracked repos in project mode** work the same as global — the repo is cloned with `.git` preserved and added to `.skillshare/.gitignore`. The `tracked: true` flag is auto-recorded in `.skillshare/config.yaml`:
+**Tracked repos in project mode** work the same as global — the repo is cloned with `.git` preserved and added to `.skillshare/.gitignore` (which also ignores `.skillshare/logs/` by default). The `tracked: true` flag is auto-recorded in `.skillshare/config.yaml`:
 
 ```bash
 skillshare install github.com/team/skills --track -p

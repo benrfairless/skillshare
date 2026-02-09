@@ -3,6 +3,7 @@ package oplog
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -200,5 +201,43 @@ func TestLogDirCreatesDirectory(t *testing.T) {
 
 	if _, err := os.Stat(dir); err != nil {
 		t.Errorf("logs dir should exist after Write(), got: %v", err)
+	}
+}
+
+func TestWrite_ProjectFirstLogCreationAddsLogsToGitignore(t *testing.T) {
+	root := t.TempDir()
+	projectSkillshareDir := filepath.Join(root, ".skillshare")
+	if err := os.MkdirAll(projectSkillshareDir, 0755); err != nil {
+		t.Fatalf("failed to create .skillshare dir: %v", err)
+	}
+
+	cfgPath := filepath.Join(projectSkillshareDir, "config.yaml")
+	entry := Entry{Timestamp: "2026-01-01T10:00:00Z", Command: "sync", Status: "ok"}
+
+	if err := Write(cfgPath, OpsFile, entry); err != nil {
+		t.Fatalf("Write() error: %v", err)
+	}
+
+	gitignorePath := filepath.Join(projectSkillshareDir, ".gitignore")
+	content, err := os.ReadFile(gitignorePath)
+	if err != nil {
+		t.Fatalf("expected .gitignore to exist, read error: %v", err)
+	}
+
+	text := string(content)
+	if !strings.Contains(text, "logs/") {
+		t.Fatalf("expected .gitignore to include logs/, got:\n%s", text)
+	}
+
+	if err := Write(cfgPath, AuditFile, entry); err != nil {
+		t.Fatalf("second Write() error: %v", err)
+	}
+
+	content2, err := os.ReadFile(gitignorePath)
+	if err != nil {
+		t.Fatalf("read .gitignore after second write: %v", err)
+	}
+	if strings.Count(string(content2), "logs/") != 1 {
+		t.Fatalf("expected logs/ to appear exactly once, got:\n%s", string(content2))
 	}
 }

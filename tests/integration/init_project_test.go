@@ -83,3 +83,19 @@ func TestInitProject_ConfigContainsTargets(t *testing.T) {
 		t.Error("config should contain cursor target")
 	}
 }
+
+func TestInitProject_GitignoreIncludesLogsDirectory(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	projectRoot := filepath.Join(sb.Root, "project")
+	os.MkdirAll(projectRoot, 0755)
+
+	result := sb.RunCLIInDir(projectRoot, "init", "-p", "--targets", "claude-code")
+	result.AssertSuccess(t)
+
+	gitignore := sb.ReadFile(filepath.Join(projectRoot, ".skillshare", ".gitignore"))
+	if !strings.Contains(gitignore, "logs/") {
+		t.Errorf("project .gitignore should include logs/, got:\n%s", gitignore)
+	}
+}

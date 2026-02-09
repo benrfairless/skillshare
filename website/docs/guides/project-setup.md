@@ -106,7 +106,7 @@ skillshare install github.com/team/shared-skills/review -p
 Remote skills are:
 - Installed to `.skillshare/skills/<name>/`
 - Recorded in `.skillshare/config.yaml` under `skills:`
-- Added to `.skillshare/.gitignore` (cloned content not committed)
+- Added to `.skillshare/.gitignore` (cloned content not committed; `logs/` is ignored by default)
 
 ### Step 4: Sync to Targets
 
@@ -125,11 +125,24 @@ git commit -m "Add project-level skills"
 
 **What gets committed:**
 - `.skillshare/config.yaml` — targets and remote skill list
-- `.skillshare/.gitignore` — ignore patterns for cloned skills
+- `.skillshare/.gitignore` — ignore patterns for project logs and cloned skills
 - `.skillshare/skills/<local-skills>/` — local skill content
 
 **What's ignored:**
+- `.skillshare/logs/` (operation and audit logs)
 - Remote skill directories (re-installed from config)
+
+### Optional: Commit Log Files
+
+If you want project logs in version control, add override rules in `.skillshare/.gitignore`:
+
+```gitignore
+# User override: track logs
+!logs/
+!logs/*.log
+```
+
+If root `.gitignore` ignores `.skillshare/`, add corresponding unignore rules there too.
 
 ---
 

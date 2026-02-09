@@ -192,6 +192,21 @@ Trashed skills are:
 
 ---
 
+## Log Directory
+
+### Location
+
+```
+~/.config/skillshare/logs/
+```
+
+**Project mode:**
+```
+<project>/.skillshare/logs/
+```
+
+---
+
 ## Target Directories
 
 Targets are AI CLI skill directories. After sync, they contain symlinks to source:

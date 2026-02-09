@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"skillshare/internal/install"
 )
 
 const (
@@ -35,8 +37,22 @@ func LogDir(configPath string) string {
 // Write appends a single JSONL entry to the named log file.
 func Write(configPath, filename string, e Entry) error {
 	dir := LogDir(configPath)
+	dirInfo, statErr := os.Stat(dir)
+	logsDirMissing := os.IsNotExist(statErr)
+	if statErr != nil && !logsDirMissing {
+		return statErr
+	}
+	if statErr == nil && !dirInfo.IsDir() {
+		return &os.PathError{Op: "mkdir", Path: dir, Err: os.ErrInvalid}
+	}
+
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
+	}
+	if logsDirMissing {
+		// Backward compatibility: when an existing project first creates logs/,
+		// ensure logs/ is ignored so operation logs aren't accidentally committed.
+		ensureProjectLogGitignore(configPath)
 	}
 
 	f, err := os.OpenFile(filepath.Join(dir, filename), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
@@ -46,6 +62,14 @@ func Write(configPath, filename string, e Entry) error {
 	defer f.Close()
 
 	return json.NewEncoder(f).Encode(e)
+}
+
+func ensureProjectLogGitignore(configPath string) {
+	configDir := filepath.Dir(configPath)
+	if filepath.Base(configDir) != ".skillshare" {
+		return
+	}
+	_ = install.UpdateGitIgnore(configDir, "logs")
 }
 
 // Read returns the last `limit` entries from the named log file (newest first).

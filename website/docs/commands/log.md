@@ -49,13 +49,24 @@ skillshare log --audit
 ```
 ┌─ skillshare log ───────────────────────────────┐
   Operations (last 2)
-  2026-02-10 14:31  sync   targets=3, failed=1, scope=global            error   0.8s
-  2026-02-10 14:35  sync   targets=3, scope=global                       ok      0.3s
+  mode: global
+  file: /Users/me/.config/skillshare/logs/operations.log
+  TIME             | CMD       | STATUS  | DUR
+  -----------------+-----------+---------+--------
+  2026-02-10 14:31 | SYNC      | error   | 0.8s
+  detail: targets=3, failed=1, scope=global
+  2026-02-10 14:35 | SYNC      | ok      | 0.3s
+  detail: targets=3, scope=global
 
 ┌─ skillshare log ───────────────────────────────┐
   Audit (last 1)
-  2026-02-10 14:36  audit  all-skills, scanned=12, passed=11, failed=1   blocked 1.1s
-                     -> failed skills: prompt-injection-skill, data-exfil-skill
+  mode: global
+  file: /Users/me/.config/skillshare/logs/audit.log
+  TIME             | CMD       | STATUS  | DUR
+  -----------------+-----------+---------+--------
+  2026-02-10 14:36 | AUDIT     | blocked | 1.1s
+  detail: all-skills, scanned=12, passed=11, failed=1
+  -> failed skills: prompt-injection-skill, data-exfil-skill
 ```
 
 ## Log Format
@@ -83,6 +94,20 @@ Entries are stored in JSONL format (one JSON object per line):
 <project>/.skillshare/logs/operations.log   # Project operations
 <project>/.skillshare/logs/audit.log        # Project audit
 ```
+
+## Track Logs In Git (Project Mode)
+
+Project mode ignores `.skillshare/logs/` by default to avoid noisy commits.
+
+If your team wants to version log files, add these **user override** rules in `.skillshare/.gitignore` after the managed block:
+
+```gitignore
+# User override: track logs
+!logs/
+!logs/*.log
+```
+
+If your repository root `.gitignore` also ignores `.skillshare/`, add matching unignore rules there as well.
 
 ## Options
 

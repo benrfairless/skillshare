@@ -2,15 +2,35 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
+	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
+
+	"github.com/mattn/go-runewidth"
+	"github.com/pterm/pterm"
 
 	"skillshare/internal/config"
 	"skillshare/internal/oplog"
 	"skillshare/internal/ui"
 )
+
+const (
+	logDetailTruncateLen = 96
+	logTimeWidth         = 16
+	logCmdWidth          = 9
+	logStatusWidth       = 7
+	logDurationWidth     = 7
+	logMinWrapWidth      = 24
+
+	logDetailPrefix = "  detail: "
+)
+
+var logANSIRegex = regexp.MustCompile(`\x1b\[[0-9;]*m`)
 
 func cmdLog(args []string) error {
 	mode, rest, err := parseModeArgs(args)
@@ -96,7 +116,17 @@ func printLogSection(configPath, filename, label string, limit int) error {
 		return fmt.Errorf("failed to read log: %w", err)
 	}
 
-	ui.HeaderBox("skillshare log", fmt.Sprintf("%s (last %d)", label, len(entries)))
+	logPath := filepath.Join(oplog.LogDir(configPath), filename)
+	if abs, absErr := filepath.Abs(logPath); absErr == nil {
+		logPath = abs
+	}
+	mode := "global"
+	if isProjectLogConfig(configPath) {
+		mode = "project"
+	}
+
+	subtitle := fmt.Sprintf("%s (last %d)\nmode: %s\nfile: %s", label, len(entries), mode, logPath)
+	ui.HeaderBox("skillshare log", subtitle)
 	if len(entries) == 0 {
 		ui.Info("No %s log entries", strings.ToLower(label))
 		return nil
@@ -107,39 +137,89 @@ func printLogSection(configPath, filename, label string, limit int) error {
 }
 
 func printLogEntries(entries []oplog.Entry) {
+	if ui.IsTTY() {
+		printLogEntriesTTYTwoLine(os.Stdout, entries, logTerminalWidth())
+		return
+	}
+
+	printLogEntriesNonTTY(os.Stdout, entries)
+}
+
+func printLogEntriesTTYTwoLine(w io.Writer, entries []oplog.Entry, termWidth int) {
+	printLogTableHeaderTTY(w)
+
 	for _, e := range entries {
 		ts := formatLogTimestamp(e.Timestamp)
-		cmd := formatLogCommand(e.Command)
-		detail := formatLogDetail(e)
-		status := formatLogStatus(e.Status)
+		cmd := padLogCell(strings.ToUpper(e.Command), logCmdWidth)
+		status := colorizeLogStatusCell(padLogCell(e.Status, logStatusWidth), e.Status)
 		dur := formatLogDuration(e.Duration)
+		durCell := padLogCell(dur, logDurationWidth)
 
-		if ui.IsTTY() {
-			fmt.Printf("  %s%s%s  %-9s  %-96s  %s  %s\n",
-				ui.Gray, ts, ui.Reset, cmd, detail, status, dur)
-		} else {
-			fmt.Printf("  %s  %-9s  %-96s  %-7s  %s\n",
-				ts, e.Command, detail, e.Status, dur)
+		fmt.Fprintf(w, "  %s%s%s | %s | %s | %s\n",
+			ui.Gray,
+			padLogCell(ts, logTimeWidth),
+			ui.Reset,
+			cmd,
+			status,
+			durCell,
+		)
+
+		detail := formatLogDetail(e, false)
+		if detail != "" {
+			printWrappedLogText(
+				w,
+				logDetailPrefix,
+				detail,
+				logWrapWidthForPrefix(termWidth, logDetailPrefix),
+			)
 		}
 
-		printLogAuditSkillLines(e)
+		printLogAuditSkillLinesTTY(w, e, termWidth)
 	}
 }
 
-func printLogAuditSkillLines(e oplog.Entry) {
+func printLogEntriesNonTTY(w io.Writer, entries []oplog.Entry) {
+	for _, e := range entries {
+		ts := formatLogTimestamp(e.Timestamp)
+		detail := formatLogDetail(e, true)
+		dur := formatLogDuration(e.Duration)
+
+		fmt.Fprintf(w, "  %s  %-9s  %-96s  %-7s  %s\n",
+			ts, e.Command, detail, e.Status, dur)
+
+		printLogAuditSkillLinesNonTTY(w, e)
+	}
+}
+
+func printLogAuditSkillLinesTTY(w io.Writer, e oplog.Entry, termWidth int) {
 	if e.Command != "audit" || e.Args == nil {
 		return
 	}
 
 	if failedSkills, ok := logArgStringSlice(e.Args, "failed_skills"); ok && len(failedSkills) > 0 {
-		printLogNamedSkills("failed skills", failedSkills)
+		prefix := "  -> failed skills: "
+		printWrappedLogText(w, prefix, strings.Join(failedSkills, ", "), logWrapWidthForPrefix(termWidth, prefix))
 	}
 	if warningSkills, ok := logArgStringSlice(e.Args, "warning_skills"); ok && len(warningSkills) > 0 {
-		printLogNamedSkills("warning skills", warningSkills)
+		prefix := "  -> warning skills: "
+		printWrappedLogText(w, prefix, strings.Join(warningSkills, ", "), logWrapWidthForPrefix(termWidth, prefix))
 	}
 }
 
-func printLogNamedSkills(label string, skills []string) {
+func printLogAuditSkillLinesNonTTY(w io.Writer, e oplog.Entry) {
+	if e.Command != "audit" || e.Args == nil {
+		return
+	}
+
+	if failedSkills, ok := logArgStringSlice(e.Args, "failed_skills"); ok && len(failedSkills) > 0 {
+		printLogNamedSkillsNonTTY(w, "failed skills", failedSkills)
+	}
+	if warningSkills, ok := logArgStringSlice(e.Args, "warning_skills"); ok && len(warningSkills) > 0 {
+		printLogNamedSkillsNonTTY(w, "warning skills", warningSkills)
+	}
+}
+
+func printLogNamedSkillsNonTTY(w io.Writer, label string, skills []string) {
 	const namesPerLine = 4
 	for i := 0; i < len(skills); i += namesPerLine {
 		end := i + namesPerLine
@@ -151,7 +231,34 @@ func printLogNamedSkills(label string, skills []string) {
 		if i > 0 {
 			currentLabel = label + " (cont)"
 		}
-		fmt.Printf("                     -> %s: %s\n", currentLabel, strings.Join(skills[i:end], ", "))
+		fmt.Fprintf(w, "                     -> %s: %s\n", currentLabel, strings.Join(skills[i:end], ", "))
+	}
+}
+
+func printLogTableHeaderTTY(w io.Writer) {
+	header := fmt.Sprintf("  %-16s | %-9s | %-7s | %-7s", "TIME", "CMD", "STATUS", "DUR")
+	separator := fmt.Sprintf(
+		"  %s-+-%s-+-%s-+-%s",
+		strings.Repeat("-", logTimeWidth),
+		strings.Repeat("-", logCmdWidth),
+		strings.Repeat("-", logStatusWidth),
+		strings.Repeat("-", logDurationWidth),
+	)
+
+	fmt.Fprintf(w, "%s%s%s\n", ui.Cyan, header, ui.Reset)
+	fmt.Fprintf(w, "%s%s%s\n", ui.Gray, separator, ui.Reset)
+}
+
+func printWrappedLogText(w io.Writer, prefix, text string, width int) {
+	lines := wrapLogText(text, width)
+	if len(lines) == 0 {
+		return
+	}
+
+	continuationPrefix := strings.Repeat(" ", logDisplayWidth(prefix))
+	fmt.Fprintf(w, "%s%s%s%s\n", ui.Gray, prefix, ui.Reset, lines[0])
+	for _, line := range lines[1:] {
+		fmt.Fprintf(w, "%s%s%s%s\n", ui.Gray, continuationPrefix, ui.Reset, line)
 	}
 }
 
@@ -166,14 +273,7 @@ func formatLogTimestamp(ts string) string {
 	return t.Format("2006-01-02 15:04")
 }
 
-func formatLogCommand(cmd string) string {
-	if !ui.IsTTY() {
-		return cmd
-	}
-	return "\033[1m" + strings.ToUpper(cmd) + "\033[0m"
-}
-
-func formatLogDetail(e oplog.Entry) string {
+func formatLogDetail(e oplog.Entry, truncate bool) string {
 	detail := ""
 	if e.Args != nil {
 		switch e.Command {
@@ -187,15 +287,22 @@ func formatLogDetail(e oplog.Entry) string {
 	}
 
 	if e.Message != "" && detail != "" {
-		return truncateLogString(detail+" ("+e.Message+")", 96)
+		return formatLogDetailValue(detail+" ("+e.Message+")", truncate)
 	}
 	if e.Message != "" {
-		return truncateLogString(e.Message, 96)
+		return formatLogDetailValue(e.Message, truncate)
 	}
 	if detail != "" {
-		return truncateLogString(detail, 96)
+		return formatLogDetailValue(detail, truncate)
 	}
 	return ""
+}
+
+func formatLogDetailValue(value string, truncate bool) string {
+	if !truncate {
+		return value
+	}
+	return truncateLogString(value, logDetailTruncateLen)
 }
 
 func formatSyncLogDetail(args map[string]any) string {
@@ -382,21 +489,18 @@ func logArgStringSlice(args map[string]any, key string) ([]string, bool) {
 	}
 }
 
-func formatLogStatus(status string) string {
-	if !ui.IsTTY() {
-		return status
-	}
+func colorizeLogStatusCell(cell, status string) string {
 	switch status {
 	case "ok":
-		return "\033[32mok\033[0m     "
+		return ui.Green + cell + ui.Reset
 	case "error":
-		return "\033[31merror\033[0m  "
+		return ui.Red + cell + ui.Reset
 	case "partial":
-		return "\033[33mpartial\033[0m"
+		return ui.Yellow + cell + ui.Reset
 	case "blocked":
-		return "\033[31mblocked\033[0m"
+		return ui.Red + cell + ui.Reset
 	default:
-		return status
+		return cell
 	}
 }
 
@@ -415,6 +519,84 @@ func truncateLogString(s string, maxLen int) string {
 		return s
 	}
 	return s[:maxLen-3] + "..."
+}
+
+func logTerminalWidth() int {
+	width := pterm.GetTerminalWidth()
+	if width > 0 {
+		return width
+	}
+	return 120
+}
+
+func logWrapWidthForPrefix(termWidth int, prefix string) int {
+	width := termWidth - logDisplayWidth(prefix)
+	if width < logMinWrapWidth {
+		return logMinWrapWidth
+	}
+	return width
+}
+
+func wrapLogText(text string, maxWidth int) []string {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return nil
+	}
+
+	if maxWidth <= 0 {
+		return []string{text}
+	}
+
+	lines := make([]string, 0, 4)
+	for len(text) > 0 {
+		if logDisplayWidth(text) <= maxWidth {
+			lines = append(lines, text)
+			break
+		}
+
+		splitAt := 0
+		currentWidth := 0
+		lastSpace := -1
+		for i, r := range text {
+			rw := runewidth.RuneWidth(r)
+			if currentWidth+rw > maxWidth {
+				break
+			}
+			currentWidth += rw
+			splitAt = i + utf8.RuneLen(r)
+			if r == ' ' || r == '\t' {
+				lastSpace = splitAt
+			}
+		}
+
+		if splitAt == 0 {
+			_, size := utf8.DecodeRuneInString(text)
+			splitAt = size
+		} else if lastSpace > 0 {
+			splitAt = lastSpace
+		}
+
+		line := strings.TrimSpace(text[:splitAt])
+		if line != "" {
+			lines = append(lines, line)
+		}
+
+		text = strings.TrimLeft(text[splitAt:], " \t")
+	}
+
+	return lines
+}
+
+func padLogCell(value string, width int) string {
+	current := logDisplayWidth(value)
+	if current >= width {
+		return value
+	}
+	return value + strings.Repeat(" ", width-current)
+}
+
+func logDisplayWidth(s string) int {
+	return runewidth.StringWidth(logANSIRegex.ReplaceAllString(s, ""))
 }
 
 // statusFromErr returns "ok" for nil errors and "error" otherwise.
@@ -446,4 +628,8 @@ Examples:
   skillshare log --clear          Clear operations log
   skillshare log --clear --audit  Clear audit log
   skillshare log -p               Show project operations and audit logs`)
+}
+
+func isProjectLogConfig(configPath string) bool {
+	return filepath.Base(filepath.Dir(configPath)) == ".skillshare"
 }

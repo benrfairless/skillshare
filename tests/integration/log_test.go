@@ -51,6 +51,7 @@ targets:
 	logResult.AssertOutputContains(t, "sync")
 	logResult.AssertOutputContains(t, "ok")
 	logResult.AssertOutputContains(t, "Audit")
+	logResult.AssertOutputNotContains(t, "TIME | CMD | STATUS | DUR")
 }
 
 func TestLog_ClearRemovesEntries(t *testing.T) {

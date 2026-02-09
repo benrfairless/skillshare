@@ -133,6 +133,7 @@ make sandbox-down
 |------|-------------|
 | `~/.config/skillshare/config.yaml` | Configuration file |
 | `~/.config/skillshare/skills/` | Source directory |
+| `~/.config/skillshare/logs/` | Operation and audit logs |
 | `~/.config/skillshare/backups/` | Backup directory |
 
 ---
