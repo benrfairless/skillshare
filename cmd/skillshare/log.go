@@ -146,6 +146,9 @@ func formatLogDetail(e oplog.Entry) string {
 	if v, ok := e.Args["skills"]; ok {
 		parts = append(parts, fmt.Sprintf("%v", v))
 	}
+	if v, ok := e.Args["targets"]; ok {
+		parts = append(parts, fmt.Sprintf("%v target(s)", v))
+	}
 	if v, ok := e.Args["target"]; ok {
 		parts = append(parts, fmt.Sprintf("%v", v))
 	}

@@ -53,6 +53,7 @@ function formatDetail(entry: LogEntry): string {
   const parts: string[] = [];
   if (entry.args.source) parts.push(String(entry.args.source));
   if (entry.args.name) parts.push(String(entry.args.name));
+  if (entry.args.targets) parts.push(`${entry.args.targets} target(s)`);
   if (entry.args.target) parts.push(String(entry.args.target));
   if (entry.args.message) parts.push(String(entry.args.message));
   if (entry.args.summary) parts.push(String(entry.args.summary));
