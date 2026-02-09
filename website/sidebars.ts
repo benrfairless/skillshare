@@ -106,6 +106,7 @@ const sidebars: SidebarsConfig = {
           label: 'Security & Utilities',
           items: [
             'commands/audit',
+            'commands/log',
             'commands/doctor',
             'commands/ui',
           ],

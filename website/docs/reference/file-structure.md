@@ -25,6 +25,9 @@ Directory layout and file locations for skillshare.
 │       └── backend/
 │           └── api/
 │               └── SKILL.md
+├── logs/                    # Operation logs (JSONL)
+│   ├── operations.log       # install, sync, update, etc.
+│   └── audit.log            # Security audit scans
 ├── backups/                 # Backup directory
 │   ├── 2026-01-20_15-30-00/
 │   │   ├── claude/
@@ -256,6 +259,7 @@ _team-skills__frontend__ui/SKILL.md
 |------|------|
 | Config | `~/.config/skillshare/config.yaml` |
 | Source | `~/.config/skillshare/skills/` |
+| Logs | `~/.config/skillshare/logs/` |
 | Backups | `~/.config/skillshare/backups/` |
 | Trash | `~/.config/skillshare/trash/` |
 | Link type | Symlinks |
@@ -266,6 +270,7 @@ _team-skills__frontend__ui/SKILL.md
 |------|------|
 | Config | `%USERPROFILE%\.config\skillshare\config.yaml` |
 | Source | `%USERPROFILE%\.config\skillshare\skills\` |
+| Logs | `%USERPROFILE%\.config\skillshare\logs\` |
 | Backups | `%USERPROFILE%\.config\skillshare\backups\` |
 | Trash | `%USERPROFILE%\.config\skillshare\trash\` |
 | Link type | NTFS Junctions |
