@@ -594,6 +594,58 @@ targets: {}
 	}
 }
 
+// TestInstall_Discovery_HiddenDirs_FindsSkills tests that skills inside hidden
+// directories (like .curated/, .system/) are discovered, while .git is skipped.
+func TestInstall_Discovery_HiddenDirs_FindsSkills(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+`)
+
+	// Create a repo with skills inside hidden directories (like openai/skills)
+	gitRepoPath := filepath.Join(sb.Root, "hidden-dir-repo")
+	curatedSkill := filepath.Join(gitRepoPath, ".curated", "pdf")
+	systemSkill := filepath.Join(gitRepoPath, ".system", "figma")
+
+	os.MkdirAll(curatedSkill, 0755)
+	os.MkdirAll(systemSkill, 0755)
+	os.WriteFile(filepath.Join(curatedSkill, "SKILL.md"), []byte("# PDF"), 0644)
+	os.WriteFile(filepath.Join(systemSkill, "SKILL.md"), []byte("# Figma"), 0644)
+
+	// Initialize git repo
+	cmd := exec.Command("git", "init")
+	cmd.Dir = gitRepoPath
+	if err := cmd.Run(); err != nil {
+		t.Skip("git not available, skipping git test")
+	}
+
+	cmd = exec.Command("git", "config", "user.email", "test@test.com")
+	cmd.Dir = gitRepoPath
+	cmd.Run()
+
+	cmd = exec.Command("git", "config", "user.name", "Test")
+	cmd.Dir = gitRepoPath
+	cmd.Run()
+
+	cmd = exec.Command("git", "add", ".")
+	cmd.Dir = gitRepoPath
+	cmd.Run()
+
+	cmd = exec.Command("git", "commit", "-m", "Initial commit")
+	cmd.Dir = gitRepoPath
+	cmd.Run()
+
+	// Use file:// protocol to test git discovery with local repo
+	result := sb.RunCLI("install", "file://"+gitRepoPath, "--dry-run")
+
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "Found")
+	result.AssertOutputContains(t, "pdf")
+	result.AssertOutputContains(t, "figma")
+}
+
 // TestInstall_OrchestratorStructure_PreservesNesting tests that when installing
 // an orchestrator structure (root SKILL.md + child skills), the nested structure
 // is preserved rather than flattening all skills to root.

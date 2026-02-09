@@ -101,7 +101,7 @@ func TestDiscoverSkills_ChildrenOnly(t *testing.T) {
 	}
 }
 
-func TestDiscoverSkills_SkipsHiddenDirs(t *testing.T) {
+func TestDiscoverSkills_SkipsGitDir(t *testing.T) {
 	repoPath := t.TempDir()
 
 	// Create .git directory with SKILL.md (should be skipped)
@@ -113,18 +113,38 @@ func TestDiscoverSkills_SkipsHiddenDirs(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Create .hidden directory with SKILL.md (should be skipped)
-	hiddenDir := filepath.Join(repoPath, ".hidden")
-	if err := os.MkdirAll(hiddenDir, 0755); err != nil {
+	skills := discoverSkills(repoPath, true)
+	if len(skills) != 0 {
+		t.Errorf("expected 0 skills (.git skipped), got %d", len(skills))
+	}
+}
+
+func TestDiscoverSkills_FindsHiddenDirs(t *testing.T) {
+	repoPath := t.TempDir()
+
+	// Create hidden dirs with skills (like openai/skills .curated/, .system/)
+	for _, name := range []string{".curated", ".system"} {
+		dir := filepath.Join(repoPath, name, "skill-a")
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte("---\nname: skill-a\n---"), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// Also create a .git dir (should still be skipped)
+	gitDir := filepath.Join(repoPath, ".git")
+	if err := os.MkdirAll(gitDir, 0755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(hiddenDir, "SKILL.md"), []byte("---\nname: hidden\n---"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(gitDir, "SKILL.md"), []byte("---\nname: git\n---"), 0644); err != nil {
 		t.Fatal(err)
 	}
 
-	skills := discoverSkills(repoPath, true)
-	if len(skills) != 0 {
-		t.Errorf("expected 0 skills (hidden dirs skipped), got %d", len(skills))
+	skills := discoverSkills(repoPath, false)
+	if len(skills) != 2 {
+		t.Fatalf("expected 2 skills from hidden dirs, got %d: %v", len(skills), skills)
 	}
 }
 

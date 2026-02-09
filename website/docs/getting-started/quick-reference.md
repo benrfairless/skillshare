@@ -67,9 +67,9 @@ Command cheat sheet for skillshare.
 | `make sandbox-shell` | Enter playground shell |
 | `make sandbox-down` | Stop playground container |
 | `mise run ui:build` | Build frontend + copy to embed |
-| `mise run build:ui` | Full binary with embedded frontend |
+| `mise run build:all` | Full binary with embedded frontend |
 | `make ui-build` | Build frontend + copy to embed |
-| `make build-ui` | Full binary with embedded frontend |
+| `make build-all` | Full binary with embedded frontend |
 
 ---
 

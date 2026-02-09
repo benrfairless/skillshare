@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Download } from 'lucide-react';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { Download, Search } from 'lucide-react';
 import Card from './Card';
 import HandButton from './HandButton';
 import { HandCheckbox } from './HandInput';
@@ -24,11 +24,23 @@ export default function SkillPickerModal({
   installing,
 }: SkillPickerModalProps) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [filter, setFilter] = useState('');
+  const filterRef = useRef<HTMLInputElement>(null);
 
-  // Select all by default when modal opens
+  const filtered = useMemo(() => {
+    if (!filter) return skills;
+    const q = filter.toLowerCase();
+    return skills.filter(
+      (s) => s.name.toLowerCase().includes(q) || s.path.toLowerCase().includes(q),
+    );
+  }, [skills, filter]);
+
+  // Select all by default when modal opens; reset filter
   useEffect(() => {
     if (open) {
       setSelected(new Set(skills.map((s) => s.path)));
+      setFilter('');
+      setTimeout(() => filterRef.current?.focus(), 0);
     }
   }, [open, skills]);
 
@@ -44,14 +56,17 @@ export default function SkillPickerModal({
 
   if (!open) return null;
 
-  const allSelected = selected.size === skills.length;
+  const filteredPaths = new Set(filtered.map((s) => s.path));
+  const allFilteredSelected = filtered.length > 0 && filtered.every((s) => selected.has(s.path));
 
   const toggleAll = () => {
-    if (allSelected) {
-      setSelected(new Set());
+    const next = new Set(selected);
+    if (allFilteredSelected) {
+      for (const p of filteredPaths) next.delete(p);
     } else {
-      setSelected(new Set(skills.map((s) => s.path)));
+      for (const p of filteredPaths) next.add(p);
     }
+    setSelected(next);
   };
 
   const toggle = (path: string) => {
@@ -98,18 +113,45 @@ export default function SkillPickerModal({
             {source}
           </p>
 
+          {/* Filter */}
+          {skills.length > 5 && (
+            <div className="relative mb-3">
+              <Search
+                size={14}
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-dark pointer-events-none"
+              />
+              <input
+                ref={filterRef}
+                type="text"
+                placeholder="Filter skills..."
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                className="w-full pl-8 pr-3 py-1.5 text-sm border-2 border-muted bg-paper text-pencil placeholder:text-muted-dark outline-none focus:border-pencil-light"
+                style={{
+                  borderRadius: wobbly.sm,
+                  fontFamily: "'Courier New', monospace",
+                }}
+              />
+            </div>
+          )}
+
           {/* Select All */}
-          <div className="border-b-2 border-dashed border-muted pb-2 mb-2">
+          <div className="flex items-center justify-between border-b-2 border-dashed border-muted pb-2 mb-2">
             <HandCheckbox
-              label={allSelected ? 'Deselect All' : 'Select All'}
-              checked={allSelected}
+              label={allFilteredSelected ? 'Deselect All' : 'Select All'}
+              checked={allFilteredSelected}
               onChange={toggleAll}
             />
+            {filter && (
+              <span className="text-xs text-muted-dark">
+                {filtered.length} of {skills.length} skills
+              </span>
+            )}
           </div>
 
           {/* Skill list */}
           <div className="max-h-64 overflow-y-auto space-y-1 mb-4">
-            {skills.map((skill) => (
+            {filtered.map((skill) => (
               <div key={skill.path} className="flex items-start gap-2 py-1">
                 <HandCheckbox
                   label=""

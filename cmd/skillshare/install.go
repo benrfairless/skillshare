@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
+	"github.com/lithammer/fuzzysearch/fuzzy"
 
 	"skillshare/internal/config"
 	"skillshare/internal/install"
@@ -415,19 +417,38 @@ func selectSkills(skills []install.SkillInfo, opts install.InstallOptions) ([]in
 }
 
 // filterSkillsByName matches requested names against discovered skills.
+// It tries exact match first, then falls back to fuzzy matching.
 func filterSkillsByName(skills []install.SkillInfo, names []string) (matched []install.SkillInfo, notFound []string) {
-	nameSet := make(map[string]bool, len(names))
-	for _, n := range names {
-		nameSet[n] = true
+	skillNames := make([]string, len(skills))
+	for i, s := range skills {
+		skillNames[i] = s.Name
 	}
-	for _, skill := range skills {
-		if nameSet[skill.Name] {
-			matched = append(matched, skill)
-			delete(nameSet, skill.Name)
+	skillByName := make(map[string]install.SkillInfo, len(skills))
+	for _, s := range skills {
+		skillByName[s.Name] = s
+	}
+
+	for _, name := range names {
+		// Try exact match first
+		if s, ok := skillByName[name]; ok {
+			matched = append(matched, s)
+			continue
 		}
-	}
-	for n := range nameSet {
-		notFound = append(notFound, n)
+
+		// Fall back to fuzzy match
+		ranks := fuzzy.RankFindNormalizedFold(name, skillNames)
+		sort.Sort(ranks)
+		if len(ranks) == 1 {
+			matched = append(matched, skillByName[ranks[0].Target])
+		} else if len(ranks) > 1 {
+			suggestions := make([]string, len(ranks))
+			for i, r := range ranks {
+				suggestions[i] = r.Target
+			}
+			notFound = append(notFound, fmt.Sprintf("%s (did you mean: %s?)", name, strings.Join(suggestions, ", ")))
+		} else {
+			notFound = append(notFound, name)
+		}
 	}
 	return
 }
@@ -609,29 +630,47 @@ func installSelectedSkills(selected []install.SkillInfo, discovery *install.Disc
 
 // displayInstallResults shows the final install results
 func displayInstallResults(results []skillInstallResult, spinner *ui.Spinner) {
-	var installed, failed int
+	var successes, failures []skillInstallResult
 	for _, r := range results {
 		if r.success {
-			installed++
+			successes = append(successes, r)
 		} else {
-			failed++
+			failures = append(failures, r)
 		}
 	}
+
+	installed := len(successes)
+	failed := len(failures)
 
 	if failed > 0 && installed == 0 {
 		spinner.Fail(fmt.Sprintf("Failed to install %d skill(s)", failed))
 	} else if failed > 0 {
-		spinner.Success(fmt.Sprintf("Installed %d, failed %d", installed, failed))
+		spinner.Warn(fmt.Sprintf("Installed %d, failed %d", installed, failed))
 	} else {
 		spinner.Success(fmt.Sprintf("Installed %d skill(s)", installed))
 	}
 
-	fmt.Println()
-	for _, r := range results {
-		if r.success {
-			ui.StepDone(r.skill.Name, "installed")
-		} else {
+	// Show failures first with details
+	if failed > 0 {
+		fmt.Println()
+		for _, r := range failures {
 			ui.StepFail(r.skill.Name, r.message)
+		}
+	}
+
+	// Show successes — condensed when many
+	if installed > 0 {
+		fmt.Println()
+		if installed > 10 {
+			names := make([]string, installed)
+			for i, r := range successes {
+				names[i] = r.skill.Name
+			}
+			ui.StepDone(fmt.Sprintf("%d skills installed", installed), strings.Join(names, ", "))
+		} else {
+			for _, r := range successes {
+				ui.StepDone(r.skill.Name, r.message)
+			}
 		}
 	}
 

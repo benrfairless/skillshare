@@ -1,4 +1,4 @@
-.PHONY: help build build-meta run test test-unit test-int test-cover test-install test-docker test-docker-online sandbox-up sandbox-shell sandbox-down lint fmt fmt-check check install clean ui-install ui-build ui-dev build-ui
+.PHONY: help build build-meta run test test-unit test-int test-cover test-install test-docker test-docker-online sandbox-up sandbox-shell sandbox-down lint fmt fmt-check check install clean ui-install ui-build ui-dev build-all
 
 help:
 	@echo "Common tasks:"
@@ -21,13 +21,13 @@ help:
 	@echo "  make ui-install           # install frontend dependencies"
 	@echo "  make ui-build             # build frontend + copy to embed"
 	@echo "  make ui-dev               # Go API server + Vite dev server"
-	@echo "  make build-ui             # ui-build + build (full binary)"
+	@echo "  make build-all           # ui-build + build (full binary)"
 	@echo "  make clean                # remove build artifacts"
 
 build:
 	@if [ ! -f internal/server/dist/index.html ]; then \
 		mkdir -p internal/server/dist && \
-		printf '<!DOCTYPE html><html><body><h1>UI not built</h1><p>Run: make build-ui</p></body></html>' > internal/server/dist/index.html; \
+		printf '<!DOCTYPE html><html><body><h1>UI not built</h1><p>Run: make build-all</p></body></html>' > internal/server/dist/index.html; \
 	fi
 	mkdir -p bin && go build -o bin/skillshare ./cmd/skillshare
 
@@ -94,7 +94,7 @@ ui-dev:
 	go run -tags dev ./cmd/skillshare ui --no-open & \
 	cd ui && pnpm run dev
 
-build-ui: ui-build build
+build-all: ui-build build
 
 clean:
 	rm -rf bin coverage.out

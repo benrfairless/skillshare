@@ -43,9 +43,9 @@
 > **Recent Updates**
 > | Version | Highlights |
 > |---------|------------|
+> | [0.11.0](https://github.com/runkids/skillshare/releases/tag/v0.11.0) | Security Audit — scan skills for threats, auto-block on install, web UI audit page |
 > | [0.10.0](https://github.com/runkids/skillshare/releases/tag/v0.10.0) | Web Dashboard — visual skill management via `skillshare ui` |
 > | [0.9.0](https://github.com/runkids/skillshare/releases/tag/v0.9.0) | Project-level skills — scope skills to a single repo, share via git |
-> | [0.8.0](https://github.com/runkids/skillshare/releases/tag/v0.8.0) | `pull` → `collect` rename, clearer command symmetry, refactoring |
 
 ## Why skillshare
 
@@ -337,7 +337,7 @@ UI development helpers:
 make ui-install
 make ui-build
 make ui-dev
-make build-ui
+make build-all
 ```
 
 ## Documentation

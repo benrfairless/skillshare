@@ -189,26 +189,30 @@ export default function InstallForm({
           force,
         });
         const allWarnings: string[] = [];
-        let hasError = false;
+        const auditFindings: string[] = [];
+        const auditBlockedSkills: DiscoveredSkill[] = [];
         for (const item of res.results) {
           if (item.error) {
-            hasError = true;
-            // Check if any batch item was audit-blocked
             if (isAuditBlock(item.error)) {
-              setAuditDialog({
-                findings: parseAuditError(item.error),
-                pending: { type: 'batch', source: trimmed, skills: disc.skills },
-              });
-              return;
+              auditFindings.push(`${item.name}:`, ...parseAuditError(item.error));
+              const skill = disc.skills.find((s) => s.name === item.name);
+              if (skill) auditBlockedSkills.push(skill);
+            } else {
+              toast(`${item.name}: ${item.error}`, 'error');
             }
-            toast(`${item.name}: ${item.error}`, 'error');
           }
           if (item.warnings?.length) allWarnings.push(...item.warnings.map((w) => `${item.name}: ${w}`));
         }
-        if (!hasError) toast(res.summary, 'success');
+        toast(res.summary, auditBlockedSkills.length > 0 ? 'warning' : 'success');
         if (allWarnings.length > 0) setWarningDialog(allWarnings);
         resetForm();
         onSuccess?.({ action: 'installed', warnings: [], skillName: res.summary });
+        if (auditBlockedSkills.length > 0) {
+          setAuditDialog({
+            findings: auditFindings,
+            pending: { type: 'batch', source: trimmed, skills: auditBlockedSkills },
+          });
+        }
       } else {
         // No skills discovered — direct install
         const res = await api.install({
@@ -234,27 +238,33 @@ export default function InstallForm({
         force,
       });
       const allWarnings: string[] = [];
-      let hasError = false;
+      const auditFindings: string[] = [];
+      const auditBlockedSkills: DiscoveredSkill[] = [];
       for (const item of res.results) {
         if (item.error) {
-          hasError = true;
           if (isAuditBlock(item.error)) {
-            setShowPicker(false);
-            setAuditDialog({
-              findings: parseAuditError(item.error),
-              pending: { type: 'batch', source: pendingSource, skills: selected },
-            });
-            return;
+            auditFindings.push(`${item.name}:`, ...parseAuditError(item.error));
+            const skill = selected.find((s) => s.name === item.name);
+            if (skill) auditBlockedSkills.push(skill);
+          } else {
+            toast(`${item.name}: ${item.error}`, 'error');
           }
-          toast(`${item.name}: ${item.error}`, 'error');
         }
         if (item.warnings?.length) allWarnings.push(...item.warnings.map((w) => `${item.name}: ${w}`));
       }
-      if (!hasError) toast(res.summary, 'success');
+      // Always show summary toast
+      toast(res.summary, auditBlockedSkills.length > 0 ? 'warning' : 'success');
       if (allWarnings.length > 0) setWarningDialog(allWarnings);
       setShowPicker(false);
       resetForm();
       onSuccess?.({ action: 'installed', warnings: [], skillName: res.summary });
+      // Show audit dialog for blocked items only (force-retry targets just those)
+      if (auditBlockedSkills.length > 0) {
+        setAuditDialog({
+          findings: auditFindings,
+          pending: { type: 'batch', source: pendingSource, skills: auditBlockedSkills },
+        });
+      }
     } catch (e: unknown) {
       handleError(e, { type: 'batch', source: pendingSource, skills: selected });
     } finally {

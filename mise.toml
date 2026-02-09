@@ -24,7 +24,7 @@ echo "  mise run check          # fmt:check + lint + test"
 echo "  mise run ui:install     # install frontend dependencies"
 echo "  mise run ui:build       # build frontend + copy to embed"
 echo "  mise run ui:dev         # Go API server + Vite dev server"
-echo "  mise run build:ui       # ui:build + build (full binary)"
+echo "  mise run build:all     # ui:build + build (full binary)"
 echo "  mise run clean          # remove build artifacts"
 """
 
@@ -33,7 +33,7 @@ description = "Build the skillshare binary"
 run = """
 if [ ! -f internal/server/dist/index.html ]; then
   mkdir -p internal/server/dist
-  printf '<!DOCTYPE html><html><body><h1>UI not built</h1><p>Run: mise run build:ui</p></body></html>' > internal/server/dist/index.html
+  printf '<!DOCTYPE html><html><body><h1>UI not built</h1><p>Run: mise run build:all</p></body></html>' > internal/server/dist/index.html
 fi
 mkdir -p bin && go build -o bin/skillshare ./cmd/skillshare
 """
@@ -128,7 +128,7 @@ go run -tags dev ./cmd/skillshare ui --no-open &
 cd ui && pnpm run dev
 """
 
-[tasks."build:ui"]
+[tasks."build:all"]
 description = "Build frontend + Go binary (full build)"
 depends = ["ui:build", "build"]
 

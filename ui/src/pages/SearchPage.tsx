@@ -52,15 +52,21 @@ export default function SearchPage() {
       } else if (disc.skills.length === 1) {
         // Single discovered skill — install via batch (uses InstallFromDiscovery)
         const res = await api.installBatch({ source, skills: disc.skills });
-        toast(res.summary, 'success');
+        let hasAuditBlock = false;
         for (const item of res.results) {
           if (item.error) {
-            toast(`${item.name}: ${item.error}`, 'error');
+            if (item.error.includes('security audit failed')) {
+              hasAuditBlock = true;
+              toast(`${item.name}: blocked by security audit`, 'error');
+            } else {
+              toast(`${item.name}: ${item.error}`, 'error');
+            }
           }
           if (item.warnings?.length) {
             item.warnings.forEach((w) => toast(`${item.name}: ${w}`, 'warning'));
           }
         }
+        toast(res.summary, hasAuditBlock ? 'warning' : 'success');
       } else {
         // No skills discovered (discovery failed or non-git) — direct install
         const res = await api.install({ source });
@@ -86,15 +92,21 @@ export default function SearchPage() {
         source: pendingSource,
         skills: selected,
       });
-      toast(res.summary, 'success');
+      let hasAuditBlock = false;
       for (const item of res.results) {
         if (item.error) {
-          toast(`${item.name}: ${item.error}`, 'error');
+          if (item.error.includes('security audit failed')) {
+            hasAuditBlock = true;
+            toast(`${item.name}: blocked by security audit — use Force to override`, 'error');
+          } else {
+            toast(`${item.name}: ${item.error}`, 'error');
+          }
         }
         if (item.warnings?.length) {
           item.warnings.forEach((w) => toast(`${item.name}: ${w}`, 'warning'));
         }
       }
+      toast(res.summary, hasAuditBlock ? 'warning' : 'success');
       setShowPicker(false);
     } catch (e: unknown) {
       toast((e as Error).message, 'error');

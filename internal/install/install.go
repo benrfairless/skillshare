@@ -222,8 +222,8 @@ func discoverSkills(repoPath string, includeRoot bool) []SkillInfo {
 			return nil
 		}
 
-		// Skip hidden directories and .git
-		if info.IsDir() && (info.Name() == ".git" || (len(info.Name()) > 0 && info.Name()[0] == '.')) {
+		// Skip .git directory
+		if info.IsDir() && info.Name() == ".git" {
 			return filepath.SkipDir
 		}
 
