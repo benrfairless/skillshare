@@ -163,6 +163,7 @@ skillshare diff
 
 ```bash
 # Weekly maintenance
+skillshare audit             # Scan for security threats
 skillshare backup --cleanup  # Remove old backups
 skillshare doctor            # Check for issues
 ```

@@ -174,6 +174,29 @@ Make sure your SSH key is configured for the git host. See [Private Repositories
 
 ---
 
+## Audit Errors
+
+### `security audit failed — critical threats detected`
+
+**Cause:** The skill contains patterns matching critical security threats (prompt injection, data exfiltration, credential access).
+
+**Solution:**
+```bash
+# Review the findings
+skillshare audit <skill-name>
+
+# If you trust the source, force install
+skillshare install <source> --force
+```
+
+### `audit HIGH: Hidden zero-width Unicode characters detected`
+
+**Cause:** The skill contains invisible Unicode characters, which may be a copy-paste artifact or intentional obfuscation.
+
+**Solution:** Open the file in an editor that shows hidden characters and remove them, or force install if you trust the source.
+
+---
+
 ## Upgrade Errors
 
 ### `GitHub API rate limit exceeded`

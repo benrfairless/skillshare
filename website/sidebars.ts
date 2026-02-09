@@ -103,8 +103,9 @@ const sidebars: SidebarsConfig = {
         },
         {
           type: 'category',
-          label: 'Utilities',
+          label: 'Security & Utilities',
           items: [
+            'commands/audit',
             'commands/doctor',
             'commands/ui',
           ],

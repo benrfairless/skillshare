@@ -131,6 +131,10 @@ export const api = {
   emptyTrash: () =>
     apiFetch<{ success: boolean; removed: number }>('/trash/empty', { method: 'POST' }),
 
+  // Audit
+  auditAll: () => apiFetch<AuditAllResponse>('/audit'),
+  auditSkill: (name: string) => apiFetch<AuditResult>(`/audit/${encodeURIComponent(name)}`),
+
   // Git
   gitStatus: () => apiFetch<GitStatus>('/git/status'),
   push: (opts: { message?: string; dryRun?: boolean }) =>
@@ -365,4 +369,31 @@ export interface PullResponse {
   syncResults: SyncResult[];
   dryRun?: boolean;
   message?: string;
+}
+
+// Audit types
+export interface AuditFinding {
+  severity: 'CRITICAL' | 'HIGH' | 'MEDIUM';
+  pattern: string;
+  message: string;
+  file: string;
+  line: number;
+  snippet: string;
+}
+
+export interface AuditResult {
+  skillName: string;
+  findings: AuditFinding[];
+}
+
+export interface AuditSummary {
+  total: number;
+  passed: number;
+  warning: number;
+  failed: number;
+}
+
+export interface AuditAllResponse {
+  results: AuditResult[];
+  summary: AuditSummary;
 }

@@ -154,6 +154,10 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("POST /api/push", s.handlePush)
 	s.mux.HandleFunc("POST /api/pull", s.handlePull)
 
+	// Audit
+	s.mux.HandleFunc("GET /api/audit", s.handleAuditAll)
+	s.mux.HandleFunc("GET /api/audit/{name}", s.handleAuditSkill)
+
 	// Config
 	s.mux.HandleFunc("GET /api/config", s.handleGetConfig)
 	s.mux.HandleFunc("PUT /api/config", s.handlePutConfig)

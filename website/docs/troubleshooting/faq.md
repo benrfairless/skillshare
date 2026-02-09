@@ -253,6 +253,35 @@ skillshare backup --cleanup
 
 ---
 
+## Security
+
+### Can I trust third-party skills?
+
+Skills are instructions for your AI agent — a malicious skill could tell the AI to exfiltrate secrets or run destructive commands. skillshare mitigates this with a built-in security scanner:
+
+- **Auto-scan on install** — Every skill is scanned during `skillshare install`
+- **CRITICAL findings block** — Prompt injection, data exfiltration, credential access are blocked by default
+- **Manual scan** — Run `skillshare audit` to scan all installed skills at any time
+
+See [audit command](/docs/commands/audit) for the full list of detection patterns.
+
+### What if audit blocks my install?
+
+If a skill triggers a CRITICAL finding, installation is blocked. You have two options:
+
+1. **Review the finding** — Check if it's a false positive (e.g., a documentation example)
+2. **Force install** — Use `--force` to bypass the check if you trust the source
+
+```bash
+skillshare install suspicious-skill --force
+```
+
+### Does audit catch everything?
+
+No scanner is perfect. `skillshare audit` catches common patterns like prompt injection, `curl`/`wget` with secrets, credential file access, and obfuscated payloads. Always review skills from untrusted sources manually.
+
+---
+
 ## Getting Help
 
 ### Where do I report bugs?

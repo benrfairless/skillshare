@@ -199,8 +199,8 @@ const whyFeatures = [
   },
   {
     Icon: ShieldCheck,
-    title: 'Privacy-First',
-    description: 'No central registry, no telemetry, no install tracking. Your skill setup stays entirely local.',
+    title: 'Security Audit',
+    description: 'Scan skills for prompt injection, data exfiltration, and destructive commands. Critical threats block install automatically.',
   },
   {
     Icon: GitBranch,
@@ -250,6 +250,12 @@ const uiHighlights = [
     description: 'Search remote skills and install to your source directory in one flow.',
     image: '/img/web-search-skills-demo.png',
     alt: 'Web search page for GitHub skills',
+  },
+  {
+    title: 'Security Audit',
+    description: 'Scan all installed skills for prompt injection, credential theft, and other threats.',
+    image: '/img/web-audit-demo.png',
+    alt: 'Web security audit page showing scan results',
   },
 ];
 

@@ -11,6 +11,7 @@ import {
   GitBranch,
   Search,
   Download,
+  ShieldCheck,
   Settings,
   Menu,
   X,
@@ -21,6 +22,7 @@ import { useAppContext } from '../context/AppContext';
 const allNavItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/skills', icon: Puzzle, label: 'Skills' },
+  { to: '/audit', icon: ShieldCheck, label: 'Audit' },
   { to: '/install', icon: Download, label: 'Install' },
   { to: '/targets', icon: Target, label: 'Targets' },
   { to: '/sync', icon: RefreshCw, label: 'Sync' },

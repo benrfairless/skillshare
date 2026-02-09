@@ -58,6 +58,7 @@ Stop managing skills tool-by-tool.
 - **Cross-machine ready**: Git-native `push`/`pull` keeps all your devices aligned.
 - **Team + project friendly**: Use global skills for personal workflows and `.skillshare/` for repo-scoped collaboration.
 - **Privacy-first**: No central registry, no telemetry, no install tracking. Your skill setup stays entirely local.
+- **Built-in security audit**: Scan skills for prompt injection, data exfiltration, and other threats before they reach your AI agent.
 - **Visual control panel**: Open `skillshare ui` for browsing, install, target management, and sync status in one place.
 
 ## Comparison
@@ -75,6 +76,7 @@ skillshare uses a **declarative** approach: define your targets once in `config.
 | **Project-scoped skills** | Global lock file only | `init -p` for per-repo skills |
 | **Cross-machine sync** | Manual | Built-in `push` / `pull` |
 | **Bidirectional** | Install only | `collect` pulls changes back |
+| **Security audit** | None | Built-in `audit` + auto-scan on install |
 | **Web dashboard** | None | `skillshare ui` |
 | **Runtime dependency** | Node.js + npm | None (single Go binary) |
 
@@ -108,15 +110,15 @@ skillshare uses a **declarative** approach: define your targets once in `config.
 
 ### CLI
 
-| Sync | Install Skills |
+| Sync | Install + Audit |
 |---|---|
-| <img src=".github/assets/sync-collision-demo.png" alt="CLI status command output" width="100%"> | <img src=".github/assets/install-demo.png" alt="CLI install command output" width="100%"> |
+| <img src=".github/assets/sync-collision-demo.png" alt="CLI sync output" width="480" height="280" style="object-fit: cover;"> | <img src=".github/assets/install-with-audio-demo.png" alt="CLI install with security audit" width="480" height="280" style="object-fit: cover;"> |
 
 ### UI
 
-| Dashboard | Skills |
+| Dashboard | Security Audit |
 |---|---|
-| <img src=".github/assets/ui/web-dashboard-demo.png" alt="Web dashboard overview" width="100%"> | <img src=".github/assets/ui/web-skills-demo.png" alt="Web UI skills browser" width="100%"> |
+| <img src=".github/assets/ui/web-dashboard-demo.png" alt="Web dashboard overview" width="480" height="280" style="object-fit: cover;"> | <img src=".github/assets/ui/web-audit-demo.png" alt="Web UI security audit" width="480" height="280" style="object-fit: cover;"> |
 
 ## Installation
 
@@ -186,6 +188,7 @@ skillshare sync            # Sync skills to all targets
 | `skillshare update <name>` | Update one installed skill/repo |
 | `skillshare update --all` | Update all tracked repos |
 | `skillshare uninstall <name>` | Remove skill from source |
+| `skillshare audit [name]` | Scan skills for security threats |
 | `skillshare search <query>` | Search installable skills on GitHub |
 
 `skillshare search` requires GitHub auth (`gh auth login`) or `GITHUB_TOKEN`.
@@ -251,6 +254,22 @@ skillshare ui --host 0.0.0.0 --no-open
 ```
 
 Then access: `http://localhost:19420`
+
+## Security Audit
+
+Scan installed skills for prompt injection, data exfiltration, credential theft, and other threats before they reach your AI agent.
+
+```bash
+skillshare audit            # Scan all skills
+skillshare audit <name>     # Scan a specific skill
+```
+
+CRITICAL findings block installation by default. Use `--force` to override.
+
+Skills are also scanned automatically during `skillshare install`.
+
+> [!TIP]
+> See the [audit command reference](https://skillshare.runkids.cc/docs/commands/audit) for the full list of detection patterns.
 
 ## Docker Sandbox
 

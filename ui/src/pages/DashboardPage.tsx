@@ -7,22 +7,24 @@ import {
   Info,
   ArrowRight,
   RefreshCw,
-  Search as SearchIcon,
+
   Download,
   GitBranch,
   AlertTriangle,
   Check,
   Package,
   Zap,
+  ShieldCheck,
 } from 'lucide-react';
 import Card from '../components/Card';
 import Badge from '../components/Badge';
 import Skeleton from '../components/Skeleton';
 import { PageSkeleton } from '../components/Skeleton';
 import StatusBadge from '../components/StatusBadge';
+import ConfirmDialog from '../components/ConfirmDialog';
 import { useToast } from '../components/Toast';
 import { api } from '../api/client';
-import type { Target as TargetType, CheckResult } from '../api/client';
+import type { Target as TargetType, CheckResult, AuditAllResponse } from '../api/client';
 import { useApi } from '../hooks/useApi';
 import { useAppContext } from '../context/AppContext';
 import { wobbly, shadows } from '../design';
@@ -31,6 +33,7 @@ import { shortenHome } from '../lib/paths';
 export default function DashboardPage() {
   const { data, loading, error } = useApi(() => api.getOverview());
   const [updatingAll, setUpdatingAll] = useState(false);
+  const [showUpdateConfirm, setShowUpdateConfirm] = useState(false);
   const { toast } = useToast();
   const { isProjectMode } = useAppContext();
 
@@ -184,6 +187,9 @@ export default function DashboardPage() {
       {/* Skill Updates Check */}
       <SkillUpdatesSection />
 
+      {/* Security Audit */}
+      <SecurityAuditSection />
+
       {/* Targets Health */}
       <TargetsHealthSection />
 
@@ -228,7 +234,7 @@ export default function DashboardPage() {
             </div>
           </Link>
 
-          <Link to="/search" className="h-full">
+          <Link to="/audit" className="h-full">
             <div
               className="flex items-center gap-3 px-5 py-4 h-full bg-info-light border-2 border-pencil transition-all duration-100 hover:translate-x-[2px] hover:translate-y-[2px] cursor-pointer"
               style={{
@@ -242,12 +248,12 @@ export default function DashboardPage() {
                 (e.currentTarget as HTMLDivElement).style.boxShadow = shadows.md;
               }}
             >
-              <SearchIcon size={22} strokeWidth={2.5} className="text-blue" />
+              <ShieldCheck size={22} strokeWidth={2.5} className="text-blue" />
               <div className="flex-1">
                 <p className="font-medium text-pencil" style={{ fontFamily: 'var(--font-hand)' }}>
-                  Find Skills
+                  Security Audit
                 </p>
-                <p className="text-sm text-pencil-light">Search GitHub for new skills</p>
+                <p className="text-sm text-pencil-light">Scan skills for threats</p>
               </div>
               <ArrowRight size={16} className="text-pencil-light" />
             </div>
@@ -279,7 +285,7 @@ export default function DashboardPage() {
           </Link>
 
           <button
-            onClick={handleUpdateAll}
+            onClick={() => setShowUpdateConfirm(true)}
             disabled={updatingAll}
             className="text-left w-full h-full"
           >
@@ -311,6 +317,19 @@ export default function DashboardPage() {
               {!updatingAll && <ArrowRight size={16} className="text-pencil-light" />}
             </div>
           </button>
+
+          <ConfirmDialog
+            open={showUpdateConfirm}
+            onConfirm={() => {
+              setShowUpdateConfirm(false);
+              handleUpdateAll();
+            }}
+            onCancel={() => setShowUpdateConfirm(false)}
+            title="Update All"
+            message="This will pull the latest changes for all tracked repositories. Continue?"
+            confirmText="Update"
+            cancelText="Cancel"
+          />
         </div>
       </div>
 
@@ -495,6 +514,119 @@ function SkillUpdatesSection() {
           {checkData.tracked_repos.length === 0 && checkData.skills.length === 0 && (
             <p className="text-pencil-light text-sm">No tracked repos or updatable skills found.</p>
           )}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+/* ── Security Audit Section ───────────────────────────── */
+
+function SecurityAuditSection() {
+  const [auditData, setAuditData] = useState<AuditAllResponse | null>(null);
+  const [scanning, setScanning] = useState(false);
+  const [scanned, setScanned] = useState(false);
+  const { toast } = useToast();
+
+  const handleScan = async () => {
+    setScanning(true);
+    try {
+      const result = await api.auditAll();
+      setAuditData(result);
+      setScanned(true);
+    } catch (e: unknown) {
+      toast((e as Error).message, 'error');
+    } finally {
+      setScanning(false);
+    }
+  };
+
+  return (
+    <Card className="mb-8">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <ShieldCheck size={20} strokeWidth={2.5} className="text-blue" />
+          <h3
+            className="text-lg font-bold text-pencil"
+            style={{ fontFamily: 'var(--font-heading)' }}
+          >
+            Security Audit
+          </h3>
+          {scanned && auditData && auditData.summary.failed > 0 && (
+            <Badge variant="danger">{auditData.summary.failed} issue(s)</Badge>
+          )}
+          {scanned && auditData && auditData.summary.failed === 0 && (
+            <Badge variant="success">All clear</Badge>
+          )}
+        </div>
+        <Link to="/audit" className="text-sm text-blue hover:underline" style={{ fontFamily: 'var(--font-hand)' }}>
+          {scanned ? 'View details' : 'Run scan'}
+        </Link>
+      </div>
+
+      {!scanned && !scanning && (
+        <div className="flex items-center justify-between">
+          <p className="text-pencil-light text-sm">
+            Scan your installed skills for malicious patterns and security threats.
+          </p>
+          <button
+            onClick={handleScan}
+            className="text-sm text-blue hover:underline disabled:opacity-50 shrink-0 ml-4"
+            style={{ fontFamily: 'var(--font-hand)' }}
+          >
+            Quick Scan
+          </button>
+        </div>
+      )}
+
+      {scanning && (
+        <div className="space-y-3">
+          <Skeleton className="w-full h-8" />
+          <Skeleton className="w-3/4 h-8" />
+        </div>
+      )}
+
+      {scanned && auditData && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div
+            className="py-2 px-3 bg-paper-warm border border-muted text-center"
+            style={{ borderRadius: wobbly.sm }}
+          >
+            <p className="text-lg font-bold text-pencil" style={{ fontFamily: 'var(--font-heading)' }}>
+              {auditData.summary.total}
+            </p>
+            <p className="text-xs text-pencil-light">Scanned</p>
+          </div>
+          <div
+            className="py-2 px-3 bg-paper-warm border border-muted text-center"
+            style={{ borderRadius: wobbly.sm }}
+          >
+            <p className="text-lg font-bold text-success" style={{ fontFamily: 'var(--font-heading)' }}>
+              {auditData.summary.passed}
+            </p>
+            <p className="text-xs text-pencil-light">Passed</p>
+          </div>
+          <div
+            className="py-2 px-3 bg-paper-warm border border-muted text-center"
+            style={{ borderRadius: wobbly.sm }}
+          >
+            <p className="text-lg font-bold text-warning" style={{ fontFamily: 'var(--font-heading)' }}>
+              {auditData.summary.warning}
+            </p>
+            <p className="text-xs text-pencil-light">Warnings</p>
+          </div>
+          <div
+            className={`py-2 px-3 bg-paper-warm border text-center ${auditData.summary.failed > 0 ? 'border-danger' : 'border-muted'}`}
+            style={{ borderRadius: wobbly.sm }}
+          >
+            <p
+              className={`text-lg font-bold ${auditData.summary.failed > 0 ? 'text-danger' : 'text-pencil'}`}
+              style={{ fontFamily: 'var(--font-heading)' }}
+            >
+              {auditData.summary.failed}
+            </p>
+            <p className="text-xs text-pencil-light">Failed</p>
+          </div>
         </div>
       )}
     </Card>

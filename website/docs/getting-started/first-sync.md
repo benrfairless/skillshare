@@ -55,6 +55,8 @@ skillshare install anthropics/skills
 skillshare install anthropics/skills/skills/pdf
 ```
 
+Skills are automatically scanned for security threats during install. If critical issues are found, the install is blocked — use `--force` to override.
+
 ---
 
 ## Step 4: Sync to all targets

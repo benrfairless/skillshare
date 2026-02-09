@@ -13,6 +13,7 @@ interface ConfirmDialogProps {
   cancelText?: string;
   variant?: 'default' | 'danger';
   loading?: boolean;
+  wide?: boolean;
 }
 
 export default function ConfirmDialog({
@@ -25,6 +26,7 @@ export default function ConfirmDialog({
   cancelText = 'Cancel',
   variant = 'default',
   loading = false,
+  wide = false,
 }: ConfirmDialogProps) {
   // Close on Escape
   useEffect(() => {
@@ -50,7 +52,7 @@ export default function ConfirmDialog({
 
       {/* Dialog */}
       <div
-        className="relative w-full max-w-sm animate-sketch-in"
+        className={`relative w-full ${wide ? 'max-w-lg' : 'max-w-sm'} animate-sketch-in`}
         style={{ borderRadius: wobbly.md }}
       >
         <Card decoration="tape" className="text-center">
@@ -67,14 +69,16 @@ export default function ConfirmDialog({
             {message}
           </div>
           <div className="flex gap-3 justify-center">
-            <HandButton
-              variant="ghost"
-              size="sm"
-              onClick={onCancel}
-              disabled={loading}
-            >
-              {cancelText}
-            </HandButton>
+            {cancelText && (
+              <HandButton
+                variant="ghost"
+                size="sm"
+                onClick={onCancel}
+                disabled={loading}
+              >
+                {cancelText}
+              </HandButton>
+            )}
             <HandButton
               variant={variant === 'danger' ? 'danger' : 'primary'}
               size="sm"

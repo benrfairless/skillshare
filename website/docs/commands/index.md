@@ -14,7 +14,7 @@ Complete reference for all skillshare commands.
 | **Skill Management** | `new`, `update`, `upgrade` |
 | **Target Management** | `target`, `diff` |
 | **Sync Operations** | `collect`, `backup`, `restore`, `push`, `pull` |
-| **Utilities** | `doctor`, `ui` |
+| **Utilities** | `audit`, `doctor`, `ui` |
 
 ---
 
@@ -59,6 +59,7 @@ Complete reference for all skillshare commands.
 
 | Command | Description |
 |---------|-------------|
+| [audit](./audit) | Scan skills for security threats |
 | [doctor](./doctor) | Diagnose issues |
 | [ui](./ui) | Launch web dashboard |
 
@@ -104,6 +105,7 @@ skillshare diff
 
 # Maintenance
 skillshare update --all
+skillshare audit
 skillshare doctor
 skillshare backup
 

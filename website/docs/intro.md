@@ -20,6 +20,7 @@ Install tools get skills onto agents. **Skillshare keeps them in sync.**
 | Local + installed | Managed separately | **Unified** in single source directory |
 | Organization sharing | Commit skills.json or re-install | **Tracked repos** — git pull to update |
 | Project skills | Copy skills per repo, diverge over time | **Project mode** — auto-detected, shared via git |
+| Security audit | None | **Built-in** — auto-scan on install, `audit` command |
 | AI integration | Manual CLI only | **Built-in skill** — AI operates directly |
 
 ## Quick Start
@@ -66,6 +67,7 @@ Edit in source → all targets update. Edit in target → changes go to source (
 - **Dual-Level Architecture** — Organization skills for company standards + project skills for repo context
 - **Instant Updates** — Symlink-based sync means edits reflect immediately across all AI tools
 - **Team Ready** — Organization skills via tracked repos, project skills via git commit
+- **Security Audit** — Scan skills for prompt injection, data exfiltration, and threats. Auto-scans on install
 
 ## Supported Platforms
 

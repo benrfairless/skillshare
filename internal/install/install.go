@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"skillshare/internal/audit"
 )
 
 // InstallOptions configures the install behavior
@@ -114,6 +116,11 @@ func installFromLocal(source *Source, destPath string, result *InstallResult, op
 	// Copy directory
 	if err := copyDir(source.Path, destPath); err != nil {
 		return nil, fmt.Errorf("failed to copy skill: %w", err)
+	}
+
+	// Security audit
+	if err := auditInstalledSkill(destPath, result, opts.Force); err != nil {
+		return nil, err
 	}
 
 	// Write metadata
@@ -366,6 +373,11 @@ func InstallFromDiscovery(discovery *DiscoveryResult, skill SkillInfo, destPath 
 		return nil, fmt.Errorf("failed to copy skill: %w", err)
 	}
 
+	// Security audit
+	if err := auditInstalledSkill(destPath, result, opts.Force); err != nil {
+		return nil, err
+	}
+
 	// Write metadata
 	source := &Source{
 		Type:     discovery.Source.Type,
@@ -420,6 +432,11 @@ func installFromGitSubdir(source *Source, destPath string, result *InstallResult
 	// Copy subdirectory to destination
 	if err := copyDir(subdirPath, destPath); err != nil {
 		return nil, fmt.Errorf("failed to copy skill: %w", err)
+	}
+
+	// Security audit
+	if err := auditInstalledSkill(destPath, result, opts.Force); err != nil {
+		return nil, err
 	}
 
 	// Write metadata
@@ -517,6 +534,49 @@ func checkSkillFile(skillPath string, result *InstallResult) {
 	if _, err := os.Stat(skillFile); os.IsNotExist(err) {
 		result.Warnings = append(result.Warnings, "no SKILL.md found in skill directory")
 	}
+}
+
+// auditInstalledSkill scans the installed skill for security threats.
+// If CRITICAL findings are detected and force is false, it removes the skill
+// directory and returns an error. HIGH/MEDIUM findings are appended as warnings.
+func auditInstalledSkill(destPath string, result *InstallResult, force bool) error {
+	scanResult, err := audit.ScanSkill(destPath)
+	if err != nil {
+		// Non-fatal: warn but don't block
+		result.Warnings = append(result.Warnings, fmt.Sprintf("audit scan error: %v", err))
+		return nil
+	}
+
+	if len(scanResult.Findings) == 0 {
+		return nil
+	}
+
+	// Build warning messages for all findings (include snippet for context)
+	for _, f := range scanResult.Findings {
+		msg := fmt.Sprintf("audit %s: %s (%s:%d)", f.Severity, f.Message, f.File, f.Line)
+		if f.Snippet != "" {
+			msg += fmt.Sprintf("\n       %q", f.Snippet)
+		}
+		result.Warnings = append(result.Warnings, msg)
+	}
+
+	// CRITICAL findings block installation unless --force
+	if scanResult.HasCritical() && !force {
+		os.RemoveAll(destPath)
+		var details []string
+		for _, f := range scanResult.Findings {
+			if f.Severity == audit.SeverityCritical {
+				detail := fmt.Sprintf("  %s: %s (%s:%d)", f.Severity, f.Message, f.File, f.Line)
+				if f.Snippet != "" {
+					detail += fmt.Sprintf("\n    %q", f.Snippet)
+				}
+				details = append(details, detail)
+			}
+		}
+		return fmt.Errorf("security audit failed — critical threats detected:\n%s\n\nUse --force to override", strings.Join(details, "\n"))
+	}
+
+	return nil
 }
 
 // isGitInstalled checks if git command is available

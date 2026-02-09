@@ -245,6 +245,25 @@ skillshare install git@bitbucket.org:team/skills.git --track
 
 HTTPS URLs require interactive authentication which is not supported by skillshare. If you accidentally use an HTTPS URL for a private repo, skillshare will fail fast with an error message suggesting the SSH format.
 
+## Security Scanning
+
+Every skill is automatically scanned for security threats during installation:
+
+- **CRITICAL** findings (prompt injection, data exfiltration, credential access) **block installation**
+- **HIGH** / **MEDIUM** findings are shown as warnings but allow installation
+
+```bash
+# Blocked — critical threat detected
+skillshare install evil-skill
+# → CRITICAL: Prompt injection detected (SKILL.md:15)
+# → Installation blocked. Use --force to override.
+
+# Force install despite warnings
+skillshare install suspicious-skill --force
+```
+
+Use `--force` to bypass the security check. See [audit](/docs/commands/audit) for scanning details.
+
 ## After Installing
 
 Always sync to distribute to targets:
