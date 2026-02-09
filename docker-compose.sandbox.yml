@@ -47,7 +47,8 @@ services:
       PATH: /sandbox-home/.local/bin:/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
       GITHUB_TOKEN: ${SKILLSHARE_PLAYGROUND_GITHUB_TOKEN:-}
     volumes:
-      - .:/workspace
+      - .:/workspace:ro
+      - /workspace/internal/server/dist  # writable overlay for go:embed (entrypoint copies UI assets here)
       - go-mod-cache:/go/pkg/mod
       - go-build-cache:/go/build-cache
       - playground-home:/sandbox-home

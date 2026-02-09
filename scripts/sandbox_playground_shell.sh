@@ -15,7 +15,7 @@ if [[ -z "$(docker compose -f "$COMPOSE_FILE" --profile playground ps -q "$SERVI
 fi
 
 if [[ $# -gt 0 ]]; then
-  docker compose -f "$COMPOSE_FILE" --profile playground exec --user "$(id -u):$(id -g)" "$SERVICE" bash -c "$*"
+  docker compose -f "$COMPOSE_FILE" --profile playground exec -w /sandbox-home --user "$(id -u):$(id -g)" "$SERVICE" bash -c "$*"
 else
-  docker compose -f "$COMPOSE_FILE" --profile playground exec --user "$(id -u):$(id -g)" "$SERVICE" bash
+  docker compose -f "$COMPOSE_FILE" --profile playground exec -w /sandbox-home --user "$(id -u):$(id -g)" "$SERVICE" bash
 fi

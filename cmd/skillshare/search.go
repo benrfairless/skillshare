@@ -117,6 +117,15 @@ func searchInteractive(query string, limit int, listOnly bool, mode runMode, cwd
 	// Show logo
 	ui.Logo(appversion.Version)
 
+	// No query provided: prompt for one
+	if query == "" {
+		input, shouldExit := promptSearchQuery()
+		if shouldExit {
+			return nil
+		}
+		query = input
+	}
+
 	// List-only mode: single search and exit
 	if listOnly {
 		_, err := doSearch(query, limit, true, mode, cwd)
@@ -216,6 +225,25 @@ func doSearch(query string, limit int, listOnly bool, mode runMode, cwd string) 
 	// Interactive mode: show selector
 	fmt.Println()
 	return promptInstallFromSearch(results, mode, cwd)
+}
+
+func promptSearchQuery() (string, bool) {
+	var input string
+	prompt := &survey.Input{
+		Message: "Enter search keyword:",
+	}
+
+	err := survey.AskOne(prompt, &input)
+	if err != nil {
+		return "", true // Ctrl+C
+	}
+
+	input = strings.TrimSpace(input)
+	if input == "" {
+		return "", true // Empty = quit
+	}
+
+	return input, false
 }
 
 func promptNextSearch() (string, bool) {
