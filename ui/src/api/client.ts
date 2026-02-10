@@ -148,6 +148,18 @@ export const api = {
   auditAll: () => apiFetch<AuditAllResponse>('/audit'),
   auditSkill: (name: string) => apiFetch<AuditResult>(`/audit/${encodeURIComponent(name)}`),
 
+  // Audit Rules
+  getAuditRules: () => apiFetch<AuditRulesResponse>('/audit/rules'),
+  putAuditRules: (raw: string) =>
+    apiFetch<{ success: boolean }>('/audit/rules', {
+      method: 'PUT',
+      body: JSON.stringify({ raw }),
+    }),
+  initAuditRules: () =>
+    apiFetch<{ success: boolean; path: string }>('/audit/rules', {
+      method: 'POST',
+    }),
+
   // Git
   gitStatus: () => apiFetch<GitStatus>('/git/status'),
   push: (opts: { message?: string; dryRun?: boolean }) =>
@@ -426,4 +438,10 @@ export interface AuditSummary {
 export interface AuditAllResponse {
   results: AuditResult[];
   summary: AuditSummary;
+}
+
+export interface AuditRulesResponse {
+  exists: boolean;
+  raw: string;
+  path: string;
 }

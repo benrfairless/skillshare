@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/json"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -216,6 +217,92 @@ func boolToInt(v bool) int {
 		return 1
 	}
 	return 0
+}
+
+// auditRulesPath returns the correct audit-rules.yaml path for the current mode.
+func (s *Server) auditRulesPath() string {
+	if s.IsProjectMode() {
+		return audit.ProjectAuditRulesPath(s.projectRoot)
+	}
+	return audit.GlobalAuditRulesPath()
+}
+
+func (s *Server) handleGetAuditRules(w http.ResponseWriter, r *http.Request) {
+	path := s.auditRulesPath()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			writeJSON(w, map[string]any{
+				"exists": false,
+				"raw":    "",
+				"path":   path,
+			})
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "failed to read rules: "+err.Error())
+		return
+	}
+
+	writeJSON(w, map[string]any{
+		"exists": true,
+		"raw":    string(data),
+		"path":   path,
+	})
+}
+
+func (s *Server) handlePutAuditRules(w http.ResponseWriter, r *http.Request) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	var body struct {
+		Raw string `json:"raw"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+
+	if err := audit.ValidateRulesYAML(body.Raw); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid rules: "+err.Error())
+		return
+	}
+
+	path := s.auditRulesPath()
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		writeError(w, http.StatusInternalServerError, "create directory: "+err.Error())
+		return
+	}
+	if err := os.WriteFile(path, []byte(body.Raw), 0644); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to write rules: "+err.Error())
+		return
+	}
+
+	writeJSON(w, map[string]any{"success": true})
+}
+
+func (s *Server) handleInitAuditRules(w http.ResponseWriter, r *http.Request) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	path := s.auditRulesPath()
+	if err := audit.InitRulesFile(path); err != nil {
+		if os.IsNotExist(err) {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		// File already exists → 409 Conflict
+		if _, statErr := os.Stat(path); statErr == nil {
+			writeError(w, http.StatusConflict, "rules file already exists: "+path)
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, map[string]any{
+		"success": true,
+		"path":    path,
+	})
 }
 
 func toAuditResponse(result *audit.Result) auditResultResponse {

@@ -17,6 +17,7 @@ const SearchPage = lazy(() => import('./pages/SearchPage'));
 const InstallPage = lazy(() => import('./pages/InstallPage'));
 const TrashPage = lazy(() => import('./pages/TrashPage'));
 const AuditPage = lazy(() => import('./pages/AuditPage'));
+const AuditRulesPage = lazy(() => import('./pages/AuditRulesPage'));
 const LogPage = lazy(() => import('./pages/LogPage'));
 const ConfigPage = lazy(() => import('./pages/ConfigPage'));
 
@@ -43,6 +44,7 @@ export default function App() {
               <Route path="search" element={<Lazy><SearchPage /></Lazy>} />
               <Route path="install" element={<Lazy><InstallPage /></Lazy>} />
               <Route path="audit" element={<Lazy><AuditPage /></Lazy>} />
+              <Route path="audit/rules" element={<Lazy><AuditRulesPage /></Lazy>} />
               <Route path="log" element={<Lazy><LogPage /></Lazy>} />
               <Route path="config" element={<Lazy><ConfigPage /></Lazy>} />
             </Route>

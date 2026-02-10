@@ -452,45 +452,9 @@ func joinParts(parts []string) string {
 }
 
 func initAuditRules(path string) error {
-	if _, err := os.Stat(path); err == nil {
-		return fmt.Errorf("file already exists: %s", path)
+	if err := audit.InitRulesFile(path); err != nil {
+		return err
 	}
-
-	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
-		return fmt.Errorf("create directory: %w", err)
-	}
-
-	const template = `# Custom audit rules for skillshare.
-# Rules are merged on top of built-in rules in order:
-#   built-in → global (~/.config/skillshare/audit-rules.yaml) → project (.skillshare/audit-rules.yaml)
-#
-# Each rule needs: id, severity (CRITICAL/HIGH/MEDIUM), pattern, message, regex.
-# Optional: exclude (suppress match when line also matches), enabled (false to disable).
-
-rules:
-  # Example: flag TODO comments as informational
-  # - id: flag-todo
-  #   severity: MEDIUM
-  #   pattern: todo-comment
-  #   message: "TODO comment found"
-  #   regex: '(?i)\bTODO\b'
-
-  # Example: disable a built-in rule by id
-  # - id: system-writes-0
-  #   enabled: false
-
-  # Example: override a built-in rule (match by id, change severity)
-  # - id: destructive-commands-2
-  #   severity: MEDIUM
-  #   pattern: destructive-commands
-  #   message: "Sudo usage (downgraded)"
-  #   regex: '(?i)\bsudo\s+'
-`
-
-	if err := os.WriteFile(path, []byte(template), 0644); err != nil {
-		return fmt.Errorf("write file: %w", err)
-	}
-
 	ui.Success("Created %s", path)
 	return nil
 }

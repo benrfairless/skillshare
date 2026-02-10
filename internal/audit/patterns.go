@@ -266,6 +266,64 @@ func configDir() string {
 	return filepath.Join(home, ".config", "skillshare")
 }
 
+// DefaultRulesTemplate returns the scaffold YAML content for a new audit-rules.yaml.
+func DefaultRulesTemplate() string {
+	return `# Custom audit rules for skillshare.
+# Rules are merged on top of built-in rules in order:
+#   built-in → global (~/.config/skillshare/audit-rules.yaml) → project (.skillshare/audit-rules.yaml)
+#
+# Each rule needs: id, severity (CRITICAL/HIGH/MEDIUM), pattern, message, regex.
+# Optional: exclude (suppress match when line also matches), enabled (false to disable).
+
+rules:
+  # Example: flag TODO comments as informational
+  # - id: flag-todo
+  #   severity: MEDIUM
+  #   pattern: todo-comment
+  #   message: "TODO comment found"
+  #   regex: '(?i)\bTODO\b'
+
+  # Example: disable a built-in rule by id
+  # - id: system-writes-0
+  #   enabled: false
+
+  # Example: override a built-in rule (match by id, change severity)
+  # - id: destructive-commands-2
+  #   severity: MEDIUM
+  #   pattern: destructive-commands
+  #   message: "Sudo usage (downgraded)"
+  #   regex: '(?i)\bsudo\s+'
+`
+}
+
+// InitRulesFile creates a starter audit-rules.yaml at the given path.
+// Returns an error if the file already exists.
+func InitRulesFile(path string) error {
+	if _, err := os.Stat(path); err == nil {
+		return fmt.Errorf("file already exists: %s", path)
+	}
+
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		return fmt.Errorf("create directory: %w", err)
+	}
+
+	if err := os.WriteFile(path, []byte(DefaultRulesTemplate()), 0644); err != nil {
+		return fmt.Errorf("write file: %w", err)
+	}
+	return nil
+}
+
+// ValidateRulesYAML parses raw YAML and compiles all regex patterns.
+// Returns the first error encountered, or nil if valid.
+func ValidateRulesYAML(raw string) error {
+	yr, err := parseRulesYAML([]byte(raw))
+	if err != nil {
+		return err
+	}
+	_, err = compileRules(yr)
+	return err
+}
+
 // resetForTest resets cached state for testing.
 func resetForTest() {
 	builtinOnce = sync.Once{}

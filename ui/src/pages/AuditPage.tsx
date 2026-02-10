@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   ShieldCheck,
   ShieldAlert,
@@ -6,6 +7,7 @@ import {
   AlertTriangle,
   Info,
   FileText,
+  FileEdit,
 } from 'lucide-react';
 import { api } from '../api/client';
 import type { AuditAllResponse, AuditResult, AuditFinding } from '../api/client';
@@ -62,15 +64,23 @@ export default function AuditPage() {
             Scan installed skills for malicious patterns and security threats
           </p>
         </div>
-        <HandButton
-          variant="primary"
-          size="lg"
-          onClick={runAudit}
-          disabled={loading}
-        >
-          <ShieldCheck size={18} strokeWidth={2.5} />
-          {loading ? 'Scanning...' : 'Run Audit'}
-        </HandButton>
+        <div className="flex items-center gap-3">
+          <Link to="/audit/rules">
+            <HandButton variant="secondary" size="lg">
+              <FileEdit size={18} strokeWidth={2.5} />
+              Custom Rules
+            </HandButton>
+          </Link>
+          <HandButton
+            variant="primary"
+            size="lg"
+            onClick={runAudit}
+            disabled={loading}
+          >
+            <ShieldCheck size={18} strokeWidth={2.5} />
+            {loading ? 'Scanning...' : 'Run Audit'}
+          </HandButton>
+        </div>
       </div>
 
       {/* Loading */}
