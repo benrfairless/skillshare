@@ -56,8 +56,11 @@ func main() {
 
 	// Handle special commands (no error return)
 	switch cmd {
-	case "version", "-v", "--version":
+	case "version":
 		ui.Logo(version)
+		return
+	case "-v", "--version":
+		fmt.Printf("skillshare v%s\n", version)
 		return
 	case "help", "-h", "--help":
 		printUsage()

@@ -21,7 +21,7 @@ func TestVersion_ShortFlag(t *testing.T) {
 
 	result := sb.RunCLI("-v")
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "skillshare")
+	result.AssertOutputContains(t, "skillshare v")
 }
 
 func TestVersion_LongFlag(t *testing.T) {
@@ -30,5 +30,5 @@ func TestVersion_LongFlag(t *testing.T) {
 
 	result := sb.RunCLI("--version")
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "skillshare")
+	result.AssertOutputContains(t, "skillshare v")
 }
