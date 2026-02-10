@@ -125,12 +125,18 @@ func (s *Server) handleInstallBatch(w http.ResponseWriter, r *http.Request) {
 
 	// Summary for toast
 	installed := 0
+	installedSkills := make([]string, 0, len(results))
+	failedSkills := make([]string, 0, len(results))
 	var firstErr string
 	for _, r := range results {
 		if r.Error == "" {
 			installed++
+			installedSkills = append(installedSkills, r.Name)
 		} else if firstErr == "" {
 			firstErr = r.Error
+			failedSkills = append(failedSkills, r.Name)
+		} else {
+			failedSkills = append(failedSkills, r.Name)
 		}
 	}
 	summary := fmt.Sprintf("Installed %d of %d skills", installed, len(body.Skills))
@@ -142,14 +148,20 @@ func (s *Server) handleInstallBatch(w http.ResponseWriter, r *http.Request) {
 	if installed < len(body.Skills) {
 		status = "partial"
 	}
-	s.writeOpsLog("install", status, start, map[string]any{
-		"source":           body.Source,
-		"skills_selected":  len(body.Skills),
-		"skills_installed": installed,
-		"skills_failed":    len(body.Skills) - installed,
-		"force":            body.Force,
-		"scope":            "ui",
-	}, firstErr)
+	args := map[string]any{
+		"source":      body.Source,
+		"mode":        s.installLogMode(),
+		"force":       body.Force,
+		"scope":       "ui",
+		"skill_count": installed,
+	}
+	if len(installedSkills) > 0 {
+		args["installed_skills"] = installedSkills
+	}
+	if len(failedSkills) > 0 {
+		args["failed_skills"] = failedSkills
+	}
+	s.writeOpsLog("install", status, start, args, firstErr)
 
 	// Reconcile project config after install
 	if s.IsProjectMode() && installed > 0 {
@@ -200,6 +212,14 @@ func (s *Server) handleInstall(w http.ResponseWriter, r *http.Request) {
 			Force: body.Force,
 		})
 		if err != nil {
+			s.writeOpsLog("install", "error", start, map[string]any{
+				"source":        body.Source,
+				"mode":          s.installLogMode(),
+				"tracked":       true,
+				"force":         body.Force,
+				"scope":         "ui",
+				"failed_skills": []string{source.Name},
+			}, err.Error())
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
@@ -208,13 +228,18 @@ func (s *Server) handleInstall(w http.ResponseWriter, r *http.Request) {
 			_ = config.ReconcileProjectSkills(s.projectRoot, s.projectCfg, s.cfg.Source)
 		}
 
-		s.writeOpsLog("install", "ok", start, map[string]any{
+		args := map[string]any{
 			"source":      body.Source,
-			"name":        source.Name,
-			"track":       true,
-			"skill_count": result.SkillCount,
+			"mode":        s.installLogMode(),
+			"tracked":     true,
+			"force":       body.Force,
 			"scope":       "ui",
-		}, "")
+			"skill_count": result.SkillCount,
+		}
+		if len(result.Skills) > 0 {
+			args["installed_skills"] = result.Skills
+		}
+		s.writeOpsLog("install", "ok", start, args, "")
 
 		writeJSON(w, map[string]any{
 			"repoName":   result.RepoName,
@@ -234,6 +259,13 @@ func (s *Server) handleInstall(w http.ResponseWriter, r *http.Request) {
 		Force: body.Force,
 	})
 	if err != nil {
+		s.writeOpsLog("install", "error", start, map[string]any{
+			"source":        body.Source,
+			"mode":          s.installLogMode(),
+			"force":         body.Force,
+			"scope":         "ui",
+			"failed_skills": []string{source.Name},
+		}, err.Error())
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -244,11 +276,12 @@ func (s *Server) handleInstall(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.writeOpsLog("install", "ok", start, map[string]any{
-		"source": body.Source,
-		"name":   source.Name,
-		"track":  false,
-		"force":  body.Force,
-		"scope":  "ui",
+		"source":           body.Source,
+		"mode":             s.installLogMode(),
+		"force":            body.Force,
+		"scope":            "ui",
+		"skill_count":      1,
+		"installed_skills": []string{result.SkillName},
 	}, "")
 
 	writeJSON(w, map[string]any{
@@ -256,4 +289,11 @@ func (s *Server) handleInstall(w http.ResponseWriter, r *http.Request) {
 		"action":    result.Action,
 		"warnings":  result.Warnings,
 	})
+}
+
+func (s *Server) installLogMode() string {
+	if s.IsProjectMode() {
+		return "project"
+	}
+	return "global"
 }

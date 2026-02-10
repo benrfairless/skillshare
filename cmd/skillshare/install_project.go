@@ -94,65 +94,83 @@ func parseProjectInstallArgs(args []string) (*projectInstallArgs, bool, error) {
 	return result, false, nil
 }
 
-func cmdInstallProject(args []string, root string) error {
+func cmdInstallProject(args []string, root string) (installLogSummary, error) {
+	summary := installLogSummary{
+		Mode: "project",
+	}
+
 	parsed, showHelp, err := parseProjectInstallArgs(args)
 	if showHelp {
 		printInstallHelp()
-		return nil
+		return summary, nil
 	}
 	if err != nil {
-		return err
+		return summary, err
 	}
+	summary.DryRun = parsed.opts.DryRun
+	summary.Tracked = parsed.opts.Track
+	summary.Source = parsed.sourceArg
 
 	if !projectConfigExists(root) {
 		if err := performProjectInit(root, projectInitOptions{}); err != nil {
-			return err
+			return summary, err
 		}
 	}
 
 	runtime, err := loadProjectRuntime(root)
 	if err != nil {
-		return err
+		return summary, err
 	}
 
 	if parsed.sourceArg == "" {
 		if parsed.opts.Name != "" {
-			return fmt.Errorf("--name requires a source; it cannot be used with 'skillshare install -p' (no source)")
+			return summary, fmt.Errorf("--name requires a source; it cannot be used with 'skillshare install -p' (no source)")
 		}
+		summary.Source = "project-config"
 		return installFromProjectConfig(runtime, parsed.opts)
 	}
 
 	cfg := &config.Config{Source: runtime.sourcePath}
 	source, resolvedFromMeta, err := resolveInstallSource(parsed.sourceArg, parsed.opts, cfg)
 	if err != nil {
-		return err
+		return summary, err
 	}
 
 	if resolvedFromMeta {
-		if err := handleDirectInstall(source, cfg, parsed.opts); err != nil {
-			return err
+		summary, err = handleDirectInstall(source, cfg, parsed.opts)
+		summary.Mode = "project"
+		if err != nil {
+			return summary, err
 		}
 		if !parsed.opts.DryRun {
-			return reconcileProjectRemoteSkills(runtime)
+			return summary, reconcileProjectRemoteSkills(runtime)
 		}
-		return nil
+		return summary, nil
 	}
 
-	if err := dispatchInstall(source, cfg, parsed.opts); err != nil {
-		return err
+	summary, err = dispatchInstall(source, cfg, parsed.opts)
+	summary.Mode = "project"
+	if err != nil {
+		return summary, err
 	}
 
 	if parsed.opts.DryRun {
-		return nil
+		return summary, nil
 	}
 
-	return reconcileProjectRemoteSkills(runtime)
+	return summary, reconcileProjectRemoteSkills(runtime)
 }
 
-func installFromProjectConfig(runtime *projectRuntime, opts install.InstallOptions) error {
+func installFromProjectConfig(runtime *projectRuntime, opts install.InstallOptions) (installLogSummary, error) {
+	summary := installLogSummary{
+		Mode:   "project",
+		Source: "project-config",
+		DryRun: opts.DryRun,
+	}
+
 	if len(runtime.config.Skills) == 0 {
 		ui.Info("No remote skills defined in .skillshare/config.yaml")
-		return nil
+		return summary, nil
 	}
 
 	ui.Logo(appversion.Version)
@@ -193,6 +211,11 @@ func installFromProjectConfig(runtime *projectRuntime, opts install.InstallOptio
 				continue
 			}
 			ui.StepDone(skillName, fmt.Sprintf("installed (tracked, %d skills)", trackedResult.SkillCount))
+			if len(trackedResult.Skills) > 0 {
+				summary.InstalledSkills = append(summary.InstalledSkills, trackedResult.Skills...)
+			} else {
+				summary.InstalledSkills = append(summary.InstalledSkills, skillName)
+			}
 		} else {
 			if err := validate.SkillName(skillName); err != nil {
 				ui.StepFail(skillName, fmt.Sprintf("invalid name: %v", err))
@@ -211,6 +234,7 @@ func installFromProjectConfig(runtime *projectRuntime, opts install.InstallOptio
 				ui.Warning("Failed to update .skillshare/.gitignore: %v", err)
 			}
 			ui.StepDone(skillName, "installed")
+			summary.InstalledSkills = append(summary.InstalledSkills, skillName)
 		}
 
 		installed++
@@ -218,18 +242,20 @@ func installFromProjectConfig(runtime *projectRuntime, opts install.InstallOptio
 
 	if opts.DryRun {
 		spinner.Stop()
-		return nil
+		summary.SkillCount = len(summary.InstalledSkills)
+		return summary, nil
 	}
 
 	spinner.Success(fmt.Sprintf("Installed %d skill(s)", installed))
 	fmt.Println()
 	ui.Info("Run 'skillshare sync' to create symlinks")
+	summary.SkillCount = len(summary.InstalledSkills)
 
 	if installed > 0 {
 		if err := reconcileProjectRemoteSkills(runtime); err != nil {
-			return err
+			return summary, err
 		}
 	}
 
-	return nil
+	return summary, nil
 }

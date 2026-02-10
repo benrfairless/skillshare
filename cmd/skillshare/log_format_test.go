@@ -160,3 +160,27 @@ func TestPrintLogEntriesNonTTY_RemainsSingleLineAndTruncated(t *testing.T) {
 		t.Fatalf("expected truncated detail in non-TTY output, got:\n%s", out)
 	}
 }
+
+func TestFormatInstallLogDetail_IncludesInstalledSkills(t *testing.T) {
+	args := map[string]any{
+		"source":           "https://github.com/example/skills",
+		"mode":             "project",
+		"skill_count":      2,
+		"installed_skills": []string{"skill-a", "skill-b"},
+		"failed_skills":    []string{"skill-c"},
+	}
+
+	detail := formatInstallLogDetail(args)
+	if !strings.Contains(detail, "mode=project") {
+		t.Fatalf("expected mode in detail, got: %s", detail)
+	}
+	if !strings.Contains(detail, "skills=2") {
+		t.Fatalf("expected skill count in detail, got: %s", detail)
+	}
+	if !strings.Contains(detail, "installed=skill-a, skill-b") {
+		t.Fatalf("expected installed skills in detail, got: %s", detail)
+	}
+	if !strings.Contains(detail, "failed=skill-c") {
+		t.Fatalf("expected failed skills in detail, got: %s", detail)
+	}
+}

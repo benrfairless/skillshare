@@ -40,9 +40,11 @@ skillshare audit -p           # Scan project skills
 ## Example Output
 
 ```
-┌─ skillshare audit ───────────────────┐
-│  Scanning 12 skills for threats      │
-└──────────────────────────────────────┘
+┌─ skillshare audit ──────────────────────────────────────────┐
+│  Scanning 12 skills for threats                             │
+│  mode: global                                               │
+│  path: /Users/alice/.config/skillshare/skills              │
+└─────────────────────────────────────────────────────────────┘
 
 [1/12] ✓ react-best-practices         0.1s
 [2/12] ✓ typescript-patterns           0.1s

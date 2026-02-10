@@ -83,8 +83,7 @@ func cmdAudit(args []string) error {
 		return err
 	}
 
-	summary, blocked, err = runAudit(cfg.Source, specificSkill)
-	summary.Mode = "global"
+	summary, blocked, err = runAudit(cfg.Source, specificSkill, "global")
 	logAuditOp(config.ConfigPath(), rest, summary, start, err, blocked)
 	if blocked && err == nil {
 		os.Exit(1)
@@ -92,11 +91,19 @@ func cmdAudit(args []string) error {
 	return err
 }
 
-func runAudit(sourcePath, specificSkill string) (auditRunSummary, bool, error) {
+func runAudit(sourcePath, specificSkill, mode string) (auditRunSummary, bool, error) {
 	if specificSkill != "" {
-		return auditSingleSkill(sourcePath, specificSkill)
+		return auditSingleSkill(sourcePath, specificSkill, mode)
 	}
-	return auditAllSkills(sourcePath)
+	return auditAllSkills(sourcePath, mode)
+}
+
+func auditHeaderSubtitle(scanLine, mode, sourcePath string) string {
+	displayPath := sourcePath
+	if abs, err := filepath.Abs(sourcePath); err == nil {
+		displayPath = abs
+	}
+	return fmt.Sprintf("%s\nmode: %s\npath: %s", scanLine, mode, displayPath)
 }
 
 func logAuditOp(cfgPath string, args []string, summary auditRunSummary, start time.Time, cmdErr error, blocked bool) {
@@ -149,10 +156,11 @@ func logAuditOp(cfgPath string, args []string, summary auditRunSummary, start ti
 	oplog.Write(cfgPath, oplog.AuditFile, e) //nolint:errcheck
 }
 
-func auditSingleSkill(sourcePath, name string) (auditRunSummary, bool, error) {
+func auditSingleSkill(sourcePath, name, mode string) (auditRunSummary, bool, error) {
 	summary := auditRunSummary{
 		Scope: "single",
 		Skill: name,
+		Mode:  mode,
 	}
 
 	skillPath := filepath.Join(sourcePath, name)
@@ -160,7 +168,7 @@ func auditSingleSkill(sourcePath, name string) (auditRunSummary, bool, error) {
 		return summary, false, fmt.Errorf("skill not found: %s", name)
 	}
 
-	ui.HeaderBox("skillshare audit", fmt.Sprintf("Scanning skill: %s", name))
+	ui.HeaderBox("skillshare audit", auditHeaderSubtitle(fmt.Sprintf("Scanning skill: %s", name), mode, sourcePath))
 
 	start := time.Now()
 	result, err := audit.ScanSkill(skillPath)
@@ -175,19 +183,22 @@ func auditSingleSkill(sourcePath, name string) (auditRunSummary, bool, error) {
 	summary = summarizeAuditResults(1, []*audit.Result{result})
 	summary.Scope = "single"
 	summary.Skill = name
+	summary.Mode = mode
 	return summary, result.HasCritical(), nil
 }
 
-func auditAllSkills(sourcePath string) (auditRunSummary, bool, error) {
+func auditAllSkills(sourcePath, mode string) (auditRunSummary, bool, error) {
+	baseSummary := auditRunSummary{Scope: "all", Mode: mode}
+
 	// Discover all skills
 	discovered, err := sync.DiscoverSourceSkills(sourcePath)
 	if err != nil {
-		return auditRunSummary{Scope: "all"}, false, fmt.Errorf("failed to discover skills: %w", err)
+		return baseSummary, false, fmt.Errorf("failed to discover skills: %w", err)
 	}
 
 	if len(discovered) == 0 {
 		ui.Info("No skills found in source directory")
-		return auditRunSummary{Scope: "all"}, false, nil
+		return baseSummary, false, nil
 	}
 
 	// Deduplicate by SourcePath — DiscoverSourceSkills may walk nested repos
@@ -224,7 +235,7 @@ func auditAllSkills(sourcePath string) (auditRunSummary, bool, error) {
 	}
 
 	total := len(skillPaths)
-	ui.HeaderBox("skillshare audit", fmt.Sprintf("Scanning %d skills for threats", total))
+	ui.HeaderBox("skillshare audit", auditHeaderSubtitle(fmt.Sprintf("Scanning %d skills for threats", total), mode, sourcePath))
 
 	var results []*audit.Result
 	scanErrors := 0
@@ -249,6 +260,7 @@ func auditAllSkills(sourcePath string) (auditRunSummary, bool, error) {
 	summary := summarizeAuditResults(total, results)
 	summary.Scope = "all"
 	summary.ScanErrors = scanErrors
+	summary.Mode = mode
 
 	for _, r := range results {
 		if r.HasCritical() {

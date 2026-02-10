@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/AlecAivazis/survey/v2"
 
@@ -361,7 +362,16 @@ func promptInstallFromSearch(results []search.SearchResult, mode runMode, cwd st
 	return false, installFromSearchResult(selected, cfg)
 }
 
-func installFromSearchResultProject(result search.SearchResult, cwd string) error {
+func installFromSearchResultProject(result search.SearchResult, cwd string) (err error) {
+	start := time.Now()
+	logSummary := installLogSummary{
+		Source: result.Source,
+		Mode:   "project",
+	}
+	defer func() {
+		logInstallOp(config.ProjectConfigPath(cwd), []string{result.Source}, start, err, logSummary)
+	}()
+
 	// Auto-init project if not yet initialized
 	if !projectConfigExists(cwd) {
 		if err := performProjectInit(cwd, projectInitOptions{}); err != nil {
@@ -396,10 +406,13 @@ func installFromSearchResultProject(result search.SearchResult, cwd string) erro
 	installResult, err := install.Install(source, destPath, install.InstallOptions{})
 	if err != nil {
 		spinner.Fail("Failed to install")
+		logSummary.FailedSkills = []string{result.Name}
 		return err
 	}
 
 	spinner.Success(fmt.Sprintf("Installed: %s", result.Name))
+	logSummary.SkillCount = 1
+	logSummary.InstalledSkills = []string{result.Name}
 
 	for _, warning := range installResult.Warnings {
 		ui.Warning("%s", warning)
@@ -421,7 +434,16 @@ func installFromSearchResultProject(result search.SearchResult, cwd string) erro
 	return nil
 }
 
-func installFromSearchResult(result search.SearchResult, cfg *config.Config) error {
+func installFromSearchResult(result search.SearchResult, cfg *config.Config) (err error) {
+	start := time.Now()
+	logSummary := installLogSummary{
+		Source: result.Source,
+		Mode:   "global",
+	}
+	defer func() {
+		logInstallOp(config.ConfigPath(), []string{result.Source}, start, err, logSummary)
+	}()
+
 	// Parse source
 	source, err := install.ParseSource(result.Source)
 	if err != nil {
@@ -446,10 +468,13 @@ func installFromSearchResult(result search.SearchResult, cfg *config.Config) err
 	installResult, err := install.Install(source, destPath, install.InstallOptions{})
 	if err != nil {
 		spinner.Fail("Failed to install")
+		logSummary.FailedSkills = []string{result.Name}
 		return err
 	}
 
 	spinner.Success(fmt.Sprintf("Installed: %s", result.Name))
+	logSummary.SkillCount = 1
+	logSummary.InstalledSkills = []string{result.Name}
 
 	// Show warnings
 	for _, warning := range installResult.Warnings {

@@ -25,6 +25,21 @@ type installArgs struct {
 	opts      install.InstallOptions
 }
 
+type installLogSummary struct {
+	Source          string
+	Mode            string
+	SkillCount      int
+	InstalledSkills []string
+	FailedSkills    []string
+	DryRun          bool
+	Tracked         bool
+}
+
+type installBatchSummary struct {
+	InstalledSkills []string
+	FailedSkills    []string
+}
+
 // parseInstallArgs parses install command arguments
 func parseInstallArgs(args []string) (*installArgs, bool, error) {
 	result := &installArgs{}
@@ -148,7 +163,7 @@ func resolveInstallSource(sourceArg string, opts install.InstallOptions, cfg *co
 }
 
 // dispatchInstall routes to the appropriate install handler
-func dispatchInstall(source *install.Source, cfg *config.Config, opts install.InstallOptions) error {
+func dispatchInstall(source *install.Source, cfg *config.Config, opts install.InstallOptions) (installLogSummary, error) {
 	if opts.Track {
 		return handleTrackedRepoInstall(source, cfg, opts)
 	}
@@ -187,8 +202,11 @@ func cmdInstall(args []string) error {
 	applyModeLabel(mode)
 
 	if mode == modeProject {
-		err := cmdInstallProject(rest, cwd)
-		logInstallOp(config.ProjectConfigPath(cwd), rest, start, err)
+		summary, err := cmdInstallProject(rest, cwd)
+		if summary.Mode == "" {
+			summary.Mode = "project"
+		}
+		logInstallOp(config.ProjectConfigPath(cwd), rest, start, err, summary)
 		return err
 	}
 
@@ -208,26 +226,77 @@ func cmdInstall(args []string) error {
 
 	source, resolvedFromMeta, err := resolveInstallSource(parsed.sourceArg, parsed.opts, cfg)
 	if err != nil {
-		logInstallOp(config.ConfigPath(), rest, start, err)
+		logInstallOp(config.ConfigPath(), rest, start, err, installLogSummary{
+			Source: parsed.sourceArg,
+			Mode:   "global",
+		})
 		return err
+	}
+
+	summary := installLogSummary{
+		Source:  parsed.sourceArg,
+		Mode:    "global",
+		DryRun:  parsed.opts.DryRun,
+		Tracked: parsed.opts.Track,
 	}
 
 	// If resolved from metadata with update/force, go directly to install
 	if resolvedFromMeta {
-		err = handleDirectInstall(source, cfg, parsed.opts)
-		logInstallOp(config.ConfigPath(), rest, start, err)
+		summary, err = handleDirectInstall(source, cfg, parsed.opts)
+		if summary.Mode == "" {
+			summary.Mode = "global"
+		}
+		if summary.Source == "" {
+			summary.Source = parsed.sourceArg
+		}
+		logInstallOp(config.ConfigPath(), rest, start, err, summary)
 		return err
 	}
 
-	err = dispatchInstall(source, cfg, parsed.opts)
-	logInstallOp(config.ConfigPath(), rest, start, err)
+	summary, err = dispatchInstall(source, cfg, parsed.opts)
+	if summary.Mode == "" {
+		summary.Mode = "global"
+	}
+	if summary.Source == "" {
+		summary.Source = parsed.sourceArg
+	}
+	logInstallOp(config.ConfigPath(), rest, start, err, summary)
 	return err
 }
 
-func logInstallOp(cfgPath string, args []string, start time.Time, cmdErr error) {
+func logInstallOp(cfgPath string, args []string, start time.Time, cmdErr error, summary installLogSummary) {
 	e := oplog.NewEntry("install", statusFromErr(cmdErr), time.Since(start))
+	fields := map[string]any{}
+	source := summary.Source
 	if len(args) > 0 {
-		e.Args = map[string]any{"source": args[0]}
+		source = args[0]
+	}
+	if source != "" {
+		fields["source"] = source
+	}
+	if summary.Mode != "" {
+		fields["mode"] = summary.Mode
+	}
+	if summary.DryRun {
+		fields["dry_run"] = true
+	}
+	if summary.Tracked {
+		fields["tracked"] = true
+	}
+	if summary.SkillCount > 0 {
+		fields["skill_count"] = summary.SkillCount
+	}
+	if len(summary.InstalledSkills) > 0 {
+		fields["installed_skills"] = summary.InstalledSkills
+		if _, ok := fields["skill_count"]; !ok {
+			fields["skill_count"] = len(summary.InstalledSkills)
+		}
+	}
+	if len(summary.FailedSkills) > 0 {
+		fields["failed_skills"] = summary.FailedSkills
+	}
+	if len(fields) > 0 {
+		e.Args = fields
 	}
 	if cmdErr != nil {
 		e.Message = cmdErr.Error()
@@ -235,7 +304,13 @@ func logInstallOp(cfgPath string, args []string, start time.Time, cmdErr error) 
 	oplog.Write(cfgPath, oplog.OpsFile, e) //nolint:errcheck
 }
 
-func handleTrackedRepoInstall(source *install.Source, cfg *config.Config, opts install.InstallOptions) error {
+func handleTrackedRepoInstall(source *install.Source, cfg *config.Config, opts install.InstallOptions) (installLogSummary, error) {
+	logSummary := installLogSummary{
+		Source:  source.Raw,
+		DryRun:  opts.DryRun,
+		Tracked: true,
+	}
+
 	// Show logo with version
 	ui.Logo(appversion.Version)
 
@@ -251,7 +326,7 @@ func handleTrackedRepoInstall(source *install.Source, cfg *config.Config, opts i
 	result, err := install.InstallTrackedRepo(source, cfg.Source, opts)
 	if err != nil {
 		treeSpinner.Fail("Failed to clone")
-		return err
+		return logSummary, err
 	}
 
 	treeSpinner.Success("Cloned")
@@ -282,6 +357,11 @@ func handleTrackedRepoInstall(source *install.Source, cfg *config.Config, opts i
 		ui.Warning("%s", warning)
 	}
 
+	if !opts.DryRun {
+		logSummary.SkillCount = result.SkillCount
+		logSummary.InstalledSkills = append(logSummary.InstalledSkills, result.Skills...)
+	}
+
 	// Show next steps
 	if !opts.DryRun {
 		fmt.Println()
@@ -289,10 +369,15 @@ func handleTrackedRepoInstall(source *install.Source, cfg *config.Config, opts i
 		ui.Info("Run 'skillshare update %s' to update this repo later", result.RepoName)
 	}
 
-	return nil
+	return logSummary, nil
 }
 
-func handleGitDiscovery(source *install.Source, cfg *config.Config, opts install.InstallOptions) error {
+func handleGitDiscovery(source *install.Source, cfg *config.Config, opts install.InstallOptions) (installLogSummary, error) {
+	logSummary := installLogSummary{
+		Source: source.Raw,
+		DryRun: opts.DryRun,
+	}
+
 	// Show logo with version
 	ui.Logo(appversion.Version)
 
@@ -305,7 +390,7 @@ func handleGitDiscovery(source *install.Source, cfg *config.Config, opts install
 	discovery, err := install.DiscoverFromGit(source)
 	if err != nil {
 		treeSpinner.Fail("Failed to clone")
-		return err
+		return logSummary, err
 	}
 	defer install.CleanupDiscovery(discovery)
 
@@ -314,13 +399,13 @@ func handleGitDiscovery(source *install.Source, cfg *config.Config, opts install
 	// Step 3: Show found skills
 	if len(discovery.Skills) == 0 {
 		ui.StepEnd("Found", "No skills (no SKILL.md files)")
-		return nil
+		return logSummary, nil
 	}
 
 	ui.StepEnd("Found", fmt.Sprintf("%d skill(s)", len(discovery.Skills)))
 
 	if opts.Name != "" && len(discovery.Skills) != 1 {
-		return fmt.Errorf("--name can only be used when exactly one skill is discovered")
+		return logSummary, fmt.Errorf("--name can only be used when exactly one skill is discovered")
 	}
 
 	// Single skill: show detailed box and install directly
@@ -328,7 +413,7 @@ func handleGitDiscovery(source *install.Source, cfg *config.Config, opts install
 		skill := discovery.Skills[0]
 		if opts.Name != "" {
 			if err := validate.SkillName(opts.Name); err != nil {
-				return fmt.Errorf("invalid skill name '%s': %w", opts.Name, err)
+				return logSummary, fmt.Errorf("invalid skill name '%s': %w", opts.Name, err)
 			}
 			skill.Name = opts.Name
 		}
@@ -347,7 +432,7 @@ func handleGitDiscovery(source *install.Source, cfg *config.Config, opts install
 		result, err := install.InstallFromDiscovery(discovery, skill, destPath, opts)
 		if err != nil {
 			installSpinner.Fail("Failed to install")
-			return err
+			return logSummary, err
 		}
 
 		if opts.DryRun {
@@ -364,16 +449,18 @@ func handleGitDiscovery(source *install.Source, cfg *config.Config, opts install
 		if !opts.DryRun {
 			fmt.Println()
 			ui.Info("Run 'skillshare sync' to distribute to all targets")
+			logSummary.InstalledSkills = append(logSummary.InstalledSkills, skill.Name)
+			logSummary.SkillCount = len(logSummary.InstalledSkills)
 		}
 
-		return nil
+		return logSummary, nil
 	}
 
 	// Non-interactive path: --skill or --all/--yes
 	if opts.HasSkillFilter() || opts.ShouldInstallAll() {
 		selected, err := selectSkills(discovery.Skills, opts)
 		if err != nil {
-			return err
+			return logSummary, err
 		}
 
 		if opts.DryRun {
@@ -383,12 +470,15 @@ func handleGitDiscovery(source *install.Source, cfg *config.Config, opts install
 			}
 			fmt.Println()
 			ui.Warning("[dry-run] Would install %d skill(s)", len(selected))
-			return nil
+			return logSummary, nil
 		}
 
 		fmt.Println()
-		installSelectedSkills(selected, discovery, cfg, opts)
-		return nil
+		batchSummary := installSelectedSkills(selected, discovery, cfg, opts)
+		logSummary.InstalledSkills = append(logSummary.InstalledSkills, batchSummary.InstalledSkills...)
+		logSummary.FailedSkills = append(logSummary.FailedSkills, batchSummary.FailedSkills...)
+		logSummary.SkillCount = len(logSummary.InstalledSkills)
+		return logSummary, nil
 	}
 
 	if opts.DryRun {
@@ -399,25 +489,28 @@ func handleGitDiscovery(source *install.Source, cfg *config.Config, opts install
 		}
 		fmt.Println()
 		ui.Warning("[dry-run] Would prompt for selection")
-		return nil
+		return logSummary, nil
 	}
 
 	fmt.Println()
 
 	selected, err := promptSkillSelection(discovery.Skills)
 	if err != nil {
-		return err
+		return logSummary, err
 	}
 
 	if len(selected) == 0 {
 		ui.Info("No skills selected")
-		return nil
+		return logSummary, nil
 	}
 
 	fmt.Println()
-	installSelectedSkills(selected, discovery, cfg, opts)
+	batchSummary := installSelectedSkills(selected, discovery, cfg, opts)
+	logSummary.InstalledSkills = append(logSummary.InstalledSkills, batchSummary.InstalledSkills...)
+	logSummary.FailedSkills = append(logSummary.FailedSkills, batchSummary.FailedSkills...)
+	logSummary.SkillCount = len(logSummary.InstalledSkills)
 
-	return nil
+	return logSummary, nil
 }
 
 // selectSkills routes to the appropriate skill selection method:
@@ -583,7 +676,7 @@ type skillInstallResult struct {
 }
 
 // installSelectedSkills installs multiple skills with progress display
-func installSelectedSkills(selected []install.SkillInfo, discovery *install.DiscoveryResult, cfg *config.Config, opts install.InstallOptions) {
+func installSelectedSkills(selected []install.SkillInfo, discovery *install.DiscoveryResult, cfg *config.Config, opts install.InstallOptions) installBatchSummary {
 	results := make([]skillInstallResult, 0, len(selected))
 	installSpinner := ui.StartSpinnerWithSteps("Installing...", len(selected))
 
@@ -648,6 +741,19 @@ func installSelectedSkills(selected []install.SkillInfo, discovery *install.Disc
 	}
 
 	displayInstallResults(results, installSpinner)
+
+	summary := installBatchSummary{
+		InstalledSkills: make([]string, 0, len(results)),
+		FailedSkills:    make([]string, 0, len(results)),
+	}
+	for _, r := range results {
+		if r.success {
+			summary.InstalledSkills = append(summary.InstalledSkills, r.skill.Name)
+			continue
+		}
+		summary.FailedSkills = append(summary.FailedSkills, r.skill.Name)
+	}
+	return summary
 }
 
 // displayInstallResults shows the final install results
@@ -702,7 +808,12 @@ func displayInstallResults(results []skillInstallResult, spinner *ui.Spinner) {
 	}
 }
 
-func handleGitSubdirInstall(source *install.Source, cfg *config.Config, opts install.InstallOptions) error {
+func handleGitSubdirInstall(source *install.Source, cfg *config.Config, opts install.InstallOptions) (installLogSummary, error) {
+	logSummary := installLogSummary{
+		Source: source.Raw,
+		DryRun: opts.DryRun,
+	}
+
 	// Show logo with version
 	ui.Logo(appversion.Version)
 
@@ -717,7 +828,7 @@ func handleGitSubdirInstall(source *install.Source, cfg *config.Config, opts ins
 	discovery, err := install.DiscoverFromGitSubdir(source)
 	if err != nil {
 		treeSpinner.Fail("Failed to clone")
-		return err
+		return logSummary, err
 	}
 	defer install.CleanupDiscovery(discovery)
 
@@ -728,7 +839,7 @@ func handleGitSubdirInstall(source *install.Source, cfg *config.Config, opts ins
 		skill := discovery.Skills[0]
 		if opts.Name != "" {
 			if err := validate.SkillName(opts.Name); err != nil {
-				return fmt.Errorf("invalid skill name '%s': %w", opts.Name, err)
+				return logSummary, fmt.Errorf("invalid skill name '%s': %w", opts.Name, err)
 			}
 			skill.Name = opts.Name
 		}
@@ -742,7 +853,7 @@ func handleGitSubdirInstall(source *install.Source, cfg *config.Config, opts ins
 		result, err := install.InstallFromDiscovery(discovery, skill, destPath, opts)
 		if err != nil {
 			installSpinner.Fail("Failed to install")
-			return err
+			return logSummary, err
 		}
 
 		if opts.DryRun {
@@ -759,27 +870,29 @@ func handleGitSubdirInstall(source *install.Source, cfg *config.Config, opts ins
 		if !opts.DryRun {
 			fmt.Println()
 			ui.Info("Run 'skillshare sync' to distribute to all targets")
+			logSummary.InstalledSkills = append(logSummary.InstalledSkills, skill.Name)
+			logSummary.SkillCount = len(logSummary.InstalledSkills)
 		}
-		return nil
+		return logSummary, nil
 	}
 
 	// Multiple skills found - enter discovery mode
 	if len(discovery.Skills) == 0 {
 		ui.StepEnd("Found", "No skills (no SKILL.md files)")
-		return nil
+		return logSummary, nil
 	}
 
 	ui.StepEnd("Found", fmt.Sprintf("%d skill(s)", len(discovery.Skills)))
 
 	if opts.Name != "" {
-		return fmt.Errorf("--name can only be used when exactly one skill is discovered")
+		return logSummary, fmt.Errorf("--name can only be used when exactly one skill is discovered")
 	}
 
 	// Non-interactive path: --skill or --all/--yes
 	if opts.HasSkillFilter() || opts.ShouldInstallAll() {
 		selected, err := selectSkills(discovery.Skills, opts)
 		if err != nil {
-			return err
+			return logSummary, err
 		}
 
 		if opts.DryRun {
@@ -789,12 +902,15 @@ func handleGitSubdirInstall(source *install.Source, cfg *config.Config, opts ins
 			}
 			fmt.Println()
 			ui.Warning("[dry-run] Would install %d skill(s)", len(selected))
-			return nil
+			return logSummary, nil
 		}
 
 		fmt.Println()
-		installSelectedSkills(selected, discovery, cfg, opts)
-		return nil
+		batchSummary := installSelectedSkills(selected, discovery, cfg, opts)
+		logSummary.InstalledSkills = append(logSummary.InstalledSkills, batchSummary.InstalledSkills...)
+		logSummary.FailedSkills = append(logSummary.FailedSkills, batchSummary.FailedSkills...)
+		logSummary.SkillCount = len(logSummary.InstalledSkills)
+		return logSummary, nil
 	}
 
 	if opts.DryRun {
@@ -804,28 +920,36 @@ func handleGitSubdirInstall(source *install.Source, cfg *config.Config, opts ins
 		}
 		fmt.Println()
 		ui.Warning("[dry-run] Would prompt for selection")
-		return nil
+		return logSummary, nil
 	}
 
 	fmt.Println()
 
 	selected, err := promptSkillSelection(discovery.Skills)
 	if err != nil {
-		return err
+		return logSummary, err
 	}
 
 	if len(selected) == 0 {
 		ui.Info("No skills selected")
-		return nil
+		return logSummary, nil
 	}
 
 	fmt.Println()
-	installSelectedSkills(selected, discovery, cfg, opts)
+	batchSummary := installSelectedSkills(selected, discovery, cfg, opts)
+	logSummary.InstalledSkills = append(logSummary.InstalledSkills, batchSummary.InstalledSkills...)
+	logSummary.FailedSkills = append(logSummary.FailedSkills, batchSummary.FailedSkills...)
+	logSummary.SkillCount = len(logSummary.InstalledSkills)
 
-	return nil
+	return logSummary, nil
 }
 
-func handleDirectInstall(source *install.Source, cfg *config.Config, opts install.InstallOptions) error {
+func handleDirectInstall(source *install.Source, cfg *config.Config, opts install.InstallOptions) (installLogSummary, error) {
+	logSummary := installLogSummary{
+		Source: source.Raw,
+		DryRun: opts.DryRun,
+	}
+
 	// Determine skill name
 	skillName := source.Name
 	if opts.Name != "" {
@@ -834,7 +958,7 @@ func handleDirectInstall(source *install.Source, cfg *config.Config, opts instal
 
 	// Validate skill name
 	if err := validate.SkillName(skillName); err != nil {
-		return fmt.Errorf("invalid skill name '%s': %w", skillName, err)
+		return logSummary, fmt.Errorf("invalid skill name '%s': %w", skillName, err)
 	}
 
 	// Set the name in source for display
@@ -866,7 +990,7 @@ func handleDirectInstall(source *install.Source, cfg *config.Config, opts instal
 	result, err := install.Install(source, destPath, opts)
 	if err != nil {
 		treeSpinner.Fail("Failed to install")
-		return err
+		return logSummary, err
 	}
 
 	// Display result
@@ -887,9 +1011,11 @@ func handleDirectInstall(source *install.Source, cfg *config.Config, opts instal
 	if !opts.DryRun {
 		fmt.Println()
 		ui.Info("Run 'skillshare sync' to distribute to all targets")
+		logSummary.InstalledSkills = append(logSummary.InstalledSkills, skillName)
+		logSummary.SkillCount = len(logSummary.InstalledSkills)
 	}
 
-	return nil
+	return logSummary, nil
 }
 
 func printInstallHelp() {

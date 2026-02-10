@@ -211,3 +211,30 @@ targets:
 		}
 	}
 }
+
+func TestLog_InstallDetailIncludesInstalledSkills(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	localSkillPath := filepath.Join(sb.Root, "local-install-source")
+	if err := os.MkdirAll(localSkillPath, 0755); err != nil {
+		t.Fatalf("failed to create local skill source: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(localSkillPath, "SKILL.md"), []byte("# Local Skill"), 0644); err != nil {
+		t.Fatalf("failed to write local skill source: %v", err)
+	}
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + sb.CreateTarget("claude") + `
+`)
+
+	installResult := sb.RunCLI("install", localSkillPath, "--name", "log-installed-skill")
+	installResult.AssertSuccess(t)
+
+	logResult := sb.RunCLI("log")
+	logResult.AssertSuccess(t)
+	logResult.AssertOutputContains(t, "skills=1")
+	logResult.AssertOutputContains(t, "installed=log-installed-skill")
+}

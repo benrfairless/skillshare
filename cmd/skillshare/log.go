@@ -279,6 +279,8 @@ func formatLogDetail(e oplog.Entry, truncate bool) string {
 		switch e.Command {
 		case "sync":
 			detail = formatSyncLogDetail(e.Args)
+		case "install":
+			detail = formatInstallLogDetail(e.Args)
 		case "audit":
 			detail = formatAuditLogDetail(e.Args)
 		default:
@@ -322,6 +324,37 @@ func formatSyncLogDetail(args map[string]any) string {
 	}
 	if scope, ok := logArgString(args, "scope"); ok && scope != "" {
 		parts = append(parts, "scope="+scope)
+	}
+
+	if len(parts) == 0 {
+		return formatGenericLogDetail(args)
+	}
+	return strings.Join(parts, ", ")
+}
+
+func formatInstallLogDetail(args map[string]any) string {
+	parts := make([]string, 0, 8)
+
+	if mode, ok := logArgString(args, "mode"); ok && mode != "" {
+		parts = append(parts, "mode="+mode)
+	}
+	if skillCount, ok := logArgInt(args, "skill_count"); ok && skillCount > 0 {
+		parts = append(parts, fmt.Sprintf("skills=%d", skillCount))
+	}
+	if installedSkills, ok := logArgStringSlice(args, "installed_skills"); ok && len(installedSkills) > 0 {
+		parts = append(parts, "installed="+strings.Join(installedSkills, ", "))
+	}
+	if failedSkills, ok := logArgStringSlice(args, "failed_skills"); ok && len(failedSkills) > 0 {
+		parts = append(parts, "failed="+strings.Join(failedSkills, ", "))
+	}
+	if dryRun, ok := logArgBool(args, "dry_run"); ok && dryRun {
+		parts = append(parts, "dry-run")
+	}
+	if tracked, ok := logArgBool(args, "tracked"); ok && tracked {
+		parts = append(parts, "tracked")
+	}
+	if source, ok := logArgString(args, "source"); ok && source != "" {
+		parts = append(parts, "source="+source)
 	}
 
 	if len(parts) == 0 {
