@@ -3,17 +3,11 @@ name: skillshare
 version: 0.11.0
 description: |
   Syncs skills across AI CLI tools (Claude, Cursor, Windsurf, etc.) from a single source of truth.
-  Supports both global mode (~/.config/skillshare/) and project mode (.skillshare/ per-repo).
-  Use when: "sync skills", "install skill", "search skills", "list skills", "show skill status",
-  "backup skills", "restore skills", "update skills", "new skill", "collect skills",
-  "push/pull skills", "add/remove target", "find a skill for X", "is there a skill that can...",
-  "how do I do X with skills", "skillshare init", "skillshare upgrade", "skill not syncing",
-  "diagnose skillshare", "doctor", "project skills", "init project", "project setup",
-  "scope skills to repo", "share skills via git", "web dashboard", "skillshare ui",
-  "audit skills", "security scan", "check skill safety",
-  "trash", "restore deleted skill", "undo uninstall", "empty trash",
-  "operation log", "show history", "what changed", "check for updates",
-  or any skill/target management across AI tools.
+  Global mode (~/.config/skillshare/) and project mode (.skillshare/ per-repo).
+  Commands: status, sync, install, uninstall, update, check, search, new, collect,
+  push, pull, diff, list, doctor, audit, trash, log, backup, restore, target, ui, upgrade.
+  Use when: managing skills across AI tools, "skillshare" CLI, skill sync/install/search,
+  project skills setup, security audit, web dashboard, or troubleshooting.
 argument-hint: "[command] [target] [--dry-run] [-p|-g]"
 ---
 
@@ -28,17 +22,6 @@ Project: .skillshare/skills/        → .claude/skills, .cursor/skills (per-repo
 
 Auto-detection: commands run in **project mode** when `.skillshare/config.yaml` exists in cwd.
 Force with `-p` (project) or `-g` (global).
-
-## Quick Start
-
-```bash
-# Global
-skillshare status && skillshare sync
-
-# Project — initialize in a repo
-skillshare init -p
-skillshare sync
-```
 
 ## Commands
 
@@ -62,60 +45,25 @@ skillshare sync
 
 ### Non-Interactive Mode
 
-AI cannot respond to CLI prompts. Always use flags:
+AI cannot respond to CLI prompts. Always pass flags to skip interactive prompts.
 
 ```bash
-# Global init
-skillshare init --copy-from claude --all-targets --git  # If skills exist
-skillshare init --no-copy --all-targets --git           # Fresh start
-
-# Project init (in repo root)
-skillshare init -p --targets "claude-code,cursor"       # Specific targets
-skillshare init -p                                      # Interactive (user only)
-
-# Install (multi-skill repo non-interactive)
-skillshare install user/repo --all                # Install all
-skillshare install user/repo -s pdf,commit        # Select specific
-skillshare install user/repo -y                   # Auto-accept
-skillshare install user/repo --force              # Override audit block
-
-# Add new agents later
-skillshare init --discover --select "windsurf,kilocode"
-skillshare init -p --discover --select "windsurf"
+# Key non-interactive patterns
+skillshare init --no-copy --all-targets --git           # Global fresh start
+skillshare init -p --targets "claude-code,cursor"       # Project init
+skillshare install user/repo --all                      # Install all skills
+skillshare install user/repo -s pdf,commit              # Select specific
 ```
+
+See [init.md](references/init.md) and [install.md](references/install.md) for all flags.
 
 ### Safety
 
-**Security audit:** `install` auto-scans skills. CRITICAL findings block install; use `--force` to override.
+- `install` auto-scans skills; **CRITICAL** findings block install (`--force` to override)
+- `uninstall` moves to **trash** (7-day retention) — restore with `trash restore <name>`
+- **NEVER** `rm -rf` symlinked skills — deletes source. Use `skillshare uninstall` or `target remove`
 
-```bash
-skillshare audit                   # Scan all skills
-skillshare audit my-skill          # Scan specific skill
-skillshare install user/repo --force   # Override CRITICAL block
-```
-
-**Soft-delete:** `uninstall` moves skills to trash (7-day retention). Restore with `trash restore`.
-
-```bash
-skillshare trash list              # See trashed skills
-skillshare trash restore my-skill  # Undo uninstall
-skillshare trash empty             # Permanent delete all
-```
-
-**NEVER** `rm -rf` symlinked skills — deletes source. Always use:
-- `skillshare uninstall <name>` to remove skills (goes to trash)
-- `skillshare target remove <name>` to unlink targets
-
-### Finding Skills
-
-```bash
-skillshare search                   # Browse popular skills
-skillshare search <query>           # Interactive install
-skillshare search <query> --list    # List only
-skillshare search <query> --json    # JSON output
-```
-
-**Query examples:** `react performance`, `pr review`, `commit`, `changelog`
+See [audit.md](references/audit.md) and [trash.md](references/trash.md) for details.
 
 ## References
 
