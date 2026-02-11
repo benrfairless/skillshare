@@ -100,7 +100,9 @@ targets:
     global_path: "~/.kode/skills"
     project_path: ".kode/skills"
   - global_name: letta
+    project_name: letta
     global_path: "~/.letta/skills"
+    project_path: ".skills"
   - global_name: mcpjam
     project_name: mcpjam
     global_path: "~/.mcpjam/skills"
