@@ -75,4 +75,6 @@ skillshare upgrade --force      # Skip confirmation
 skillshare upgrade --dry-run    # Preview
 ```
 
+**Note:** `upgrade --skill` is opt-in — it won't auto-install the built-in skill if it's not already present. Use `init --skill` or `upgrade --skill` to install it explicitly.
+
 **After upgrading skill:** `skillshare sync`

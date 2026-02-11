@@ -43,11 +43,16 @@ skillshare install anthropics/skills/skills/pdf -p    # Install to .skillshare/s
 skillshare install github.com/team/repo --track -p    # Track in project
 skillshare install -p                                 # Install all remote skills from config
 
+# Organize into subdirectories
+skillshare install anthropics/skills --into frontend  # → skills/frontend/
+skillshare install user/repo --into tools -p          # → .skillshare/skills/tools/
+
 # Selective install (non-interactive)
 skillshare install anthropics/skills -s pdf,commit    # Specific skills
 skillshare install anthropics/skills --all            # All skills
 skillshare install anthropics/skills -y               # Auto-accept
 skillshare install anthropics/skills -s pdf -p        # Selective + project mode
+skillshare install user/repo --skip-audit             # Skip security scan
 ```
 
 ### Flags
@@ -60,15 +65,17 @@ skillshare install anthropics/skills -s pdf -p        # Selective + project mode
 | `--update, -u` | Update if exists |
 | `--track, -t` | Track for updates (preserves .git) |
 | `--skill, -s <names>` | Select specific skills from multi-skill repo (comma-separated) |
+| `--into <dir>` | Install into subdirectory (e.g., `--into frontend`) |
 | `--all` | Install all discovered skills without prompting |
 | `--yes, -y` | Auto-accept all prompts (CI/CD friendly) |
+| `--skip-audit` | Skip security audit for this install |
 | `--dry-run, -n` | Preview |
 
 **Tracked repos:** Prefixed with `_`, nested with `__` (e.g., `_team__frontend__ui`).
 
 **Project `install -p` (no source):** Installs all remote skills listed in `.skillshare/config.yaml`. Useful for new team members.
 
-**Security audit:** Install auto-scans skills after download. CRITICAL findings block install — use `--force` to override. HIGH/MEDIUM shown as warnings.
+**Security audit:** Install auto-scans skills after download. CRITICAL findings block install — use `--force` to override, `--skip-audit` to skip entirely. HIGH/MEDIUM shown as warnings.
 
 **After install:** `skillshare sync`
 

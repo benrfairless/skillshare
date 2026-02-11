@@ -21,6 +21,8 @@ Initialize skillshare configuration (global or project).
 | `--discover --select "a,b"` | Non-interactive discovery |
 | `--source <path>` | Custom source path |
 | `--remote <url>` | Set git remote |
+| `--skill` | Install built-in skillshare skill (opt-in) |
+| `--no-skill` | Skip built-in skill installation |
 | `--dry-run` | Preview changes |
 
 ### AI Usage (Non-Interactive)
@@ -30,10 +32,10 @@ Initialize skillshare configuration (global or project).
 ls ~/.claude/skills ~/.cursor/skills 2>/dev/null | head -10
 
 # Step 2a: Fresh start
-skillshare init --no-copy --all-targets --git
+skillshare init --no-copy --all-targets --git --skill
 
 # Step 2b: Import existing skills
-skillshare init --copy-from claude --all-targets --git
+skillshare init --copy-from claude --all-targets --git --skill
 
 # Step 3: Verify
 skillshare status

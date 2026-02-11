@@ -15,6 +15,8 @@
 | Git push fails | Check remote: `git -C ~/.config/skillshare/skills remote -v` |
 | Project mode not detected | Verify `.skillshare/config.yaml` exists in cwd |
 | Wrong mode detected | Use `-p` (project) or `-g` (global) to force |
+| Custom audit rules not applying | Verify `audit-rules.yaml` path: global (`~/.config/skillshare/`) or project (`.skillshare/`). Run `skillshare audit --init-rules` to create template |
+| Nested skill not found | `update`/`uninstall` resolve short names — e.g., `skillshare update vue` finds `frontend/vue/vue-best-practices`. Use full path if ambiguous |
 
 ## Diagnostic Commands
 

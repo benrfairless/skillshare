@@ -1,11 +1,11 @@
 ---
 name: skillshare
-version: 0.11.0
+version: 0.11.7
 description: |
   Syncs skills across AI CLI tools (Claude, Cursor, Windsurf, etc.) from a single source of truth.
   Global mode (~/.config/skillshare/) and project mode (.skillshare/ per-repo).
   Commands: status, sync, install, uninstall, update, check, search, new, collect,
-  push, pull, diff, list, doctor, audit, trash, log, backup, restore, target, ui, upgrade.
+  push, pull, diff, list, doctor, audit, init-rules, trash, log, backup, restore, target, ui, upgrade.
   Use when: managing skills across AI tools, "skillshare" CLI, skill sync/install/search,
   project skills setup, security audit, web dashboard, or troubleshooting.
 argument-hint: "[command] [target] [--dry-run] [-p|-g]"
@@ -36,7 +36,7 @@ Force with `-p` (project) or `-g` (global).
 | **Trash** | `trash list\|restore\|delete\|empty` | ✓ (`-p`) |
 | **Log** | `log [--audit] [--tail N]` | ✓ (`-p`) |
 | **Backup** | `backup`, `restore` | ✗ |
-| **Web UI** | `ui` | ✓ (`-p`) |
+| **Web UI** | `ui` (`-g` global, `-p` project) | ✓ (`-p`) |
 | **Upgrade** | `upgrade [--cli\|--skill]` | — |
 
 **Workflow:** Most commands require `sync` afterward to distribute changes.
@@ -49,7 +49,7 @@ AI cannot respond to CLI prompts. Always pass flags to skip interactive prompts.
 
 ```bash
 # Key non-interactive patterns
-skillshare init --no-copy --all-targets --git           # Global fresh start
+skillshare init --no-copy --all-targets --git --skill   # Global fresh start
 skillshare init -p --targets "claude-code,cursor"       # Project init
 skillshare install user/repo --all                      # Install all skills
 skillshare install user/repo -s pdf,commit              # Select specific
@@ -78,5 +78,4 @@ See [audit.md](references/audit.md) and [trash.md](references/trash.md) for deta
 | Operation log | [log.md](references/log.md) |
 | Target management | [targets.md](references/targets.md) |
 | Backup/restore | [backup.md](references/backup.md) |
-| Web dashboard (UI) | [ui.md](references/ui.md) |
 | Troubleshooting | [TROUBLESHOOTING.md](references/TROUBLESHOOTING.md) |
