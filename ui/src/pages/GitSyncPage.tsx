@@ -171,7 +171,7 @@ export default function GitSyncPage() {
                     Branch: <strong>{status.branch || 'unknown'}</strong>
                   </span>
                   {status.isDirty ? (
-                    <Badge variant="warning">{status.files.length} dirty</Badge>
+                    <Badge variant="warning">{status.files?.length ?? 0} dirty</Badge>
                   ) : (
                     <Badge variant="success">clean</Badge>
                   )}
@@ -224,7 +224,7 @@ export default function GitSyncPage() {
             />
 
             {/* Changed Files */}
-            {status && status.files.length > 0 && (
+            {status && status.files?.length > 0 && (
               <div>
                 <button
                   className="flex items-center gap-1 text-sm text-pencil-light hover:text-pencil transition-colors"

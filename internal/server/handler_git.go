@@ -42,7 +42,7 @@ func (s *Server) handleGitStatus(w http.ResponseWriter, r *http.Request) {
 		resp.IsDirty = dirty
 	}
 
-	if files, err := git.GetDirtyFiles(src); err == nil {
+	if files, err := git.GetDirtyFiles(src); err == nil && len(files) > 0 {
 		resp.Files = files
 	}
 

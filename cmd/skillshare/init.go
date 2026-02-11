@@ -10,6 +10,7 @@ import (
 	"github.com/AlecAivazis/survey/v2"
 	"skillshare/internal/config"
 	"skillshare/internal/install"
+	ssync "skillshare/internal/sync"
 	"skillshare/internal/ui"
 	"skillshare/internal/utils"
 )
@@ -924,14 +925,9 @@ func tryPullAfterRemoteSetup(sourcePath string) bool {
 	trackCmd.Dir = sourcePath
 	trackCmd.Run() // best-effort
 
-	// Count pulled skills
-	entries, _ = os.ReadDir(sourcePath)
-	skillCount := 0
-	for _, e := range entries {
-		if e.IsDir() && e.Name() != ".git" {
-			skillCount++
-		}
-	}
+	// Count pulled skills (deep: count SKILL.md files, not top-level dirs)
+	discovered, _ := ssync.DiscoverSourceSkills(sourcePath)
+	skillCount := len(discovered)
 
 	spinner.Success(fmt.Sprintf("Pulled %d skill(s) from remote", skillCount))
 	return true
