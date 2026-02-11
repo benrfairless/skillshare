@@ -57,6 +57,7 @@ Stop managing skills tool-by-tool.
 - **True bidirectional flow**: Pull skills back from targets with `collect` so improvements never get trapped in one tool.
 - **Cross-machine ready**: Git-native `push`/`pull` keeps all your devices aligned.
 - **Team + project friendly**: Use global skills for personal workflows and `.skillshare/` for repo-scoped collaboration.
+- **Folder-friendly**: Organize skills in folders (e.g. `frontend/react/`) — auto-flattened to flat names on sync.
 - **Privacy-first**: No central registry, no telemetry, no install tracking. Your skill setup stays entirely local.
 - **Built-in security audit**: Scan skills for prompt injection, data exfiltration, and other threats before they reach your AI agent.
 - **Visual control panel**: Open `skillshare ui` for browsing, install, target management, and sync status in one place.
@@ -104,6 +105,9 @@ skillshare uses a **declarative** approach: define your targets once in `config.
 |----------|-------------|-----------|
 | macOS/Linux | `~/.config/skillshare/skills/` | Symlinks |
 | Windows | `%USERPROFILE%\.config\skillshare\skills\` | NTFS Junctions (no admin required) |
+
+> [!TIP]
+> Skills can be organized in folders (e.g. `frontend/react/react-best-practices/`) — they're auto-flattened on sync. See the [Organizing Guide](https://skillshare.runkids.cc/docs/guides/organizing-skills) and [runkids/my-skills](https://github.com/runkids/my-skills) for a real-world example.
 
 
 ## CLI and UI Preview
