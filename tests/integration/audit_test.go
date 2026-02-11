@@ -44,6 +44,22 @@ func TestAudit_PromptInjection(t *testing.T) {
 	result.AssertAnyOutputContains(t, "evil-skill")
 }
 
+func TestAudit_HighOnly_IsWarningNotFailed(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("high-only-skill", map[string]string{
+		"SKILL.md": "---\nname: high-only-skill\n---\n# CI setup\nsudo apt-get install -y jq",
+	})
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+	result := sb.RunCLI("audit")
+	result.AssertSuccess(t) // HIGH should be warning-only; CRITICAL is the only blocker.
+	result.AssertAnyOutputContains(t, "high-only-skill")
+	result.AssertAnyOutputContains(t, "Warning:  1 (1 high)")
+	result.AssertAnyOutputContains(t, "Failed:   0")
+}
+
 func TestAudit_SingleSkill(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()

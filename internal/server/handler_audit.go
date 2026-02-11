@@ -97,10 +97,10 @@ func (s *Server) handleAuditAll(w http.ResponseWriter, r *http.Request) {
 		results = append(results, resp)
 
 		switch result.MaxSeverity() {
-		case audit.SeverityCritical, audit.SeverityHigh:
+		case audit.SeverityCritical:
 			summary.Failed++
 			failedSkills = append(failedSkills, result.SkillName)
-		case audit.SeverityMedium:
+		case audit.SeverityHigh, audit.SeverityMedium:
 			summary.Warning++
 			warningSkills = append(warningSkills, result.SkillName)
 		default:
@@ -175,10 +175,10 @@ func (s *Server) handleAuditSkill(w http.ResponseWriter, r *http.Request) {
 	failedSkills := []string{}
 	warningSkills := []string{}
 	switch result.MaxSeverity() {
-	case audit.SeverityCritical, audit.SeverityHigh:
+	case audit.SeverityCritical:
 		failedCount = 1
 		failedSkills = append(failedSkills, result.SkillName)
-	case audit.SeverityMedium:
+	case audit.SeverityHigh, audit.SeverityMedium:
 		warningCount = 1
 		warningSkills = append(warningSkills, result.SkillName)
 	}

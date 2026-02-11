@@ -310,7 +310,7 @@ func printSkillResultLine(index, total int, result *audit.Result, elapsed time.D
 	}
 
 	sev := result.MaxSeverity()
-	if sev == audit.SeverityCritical || sev == audit.SeverityHigh {
+	if sev == audit.SeverityCritical {
 		if ui.IsTTY() {
 			fmt.Printf("%s \033[31m✗\033[0m %s %s%s%s\n", prefix, name, ui.Gray, timeStr, ui.Reset)
 		} else {
@@ -373,7 +373,14 @@ func printAuditSummary(total int, results []*audit.Result) {
 	lines = append(lines, fmt.Sprintf("  Passed:   %d", summary.Passed))
 
 	if summary.Warning > 0 {
-		lines = append(lines, fmt.Sprintf("  Warning:  %d (%d medium)", summary.Warning, summary.Medium))
+		parts := []string{}
+		if summary.High > 0 {
+			parts = append(parts, fmt.Sprintf("%d high", summary.High))
+		}
+		if summary.Medium > 0 {
+			parts = append(parts, fmt.Sprintf("%d medium", summary.Medium))
+		}
+		lines = append(lines, fmt.Sprintf("  Warning:  %d (%s)", summary.Warning, joinParts(parts)))
 	} else {
 		lines = append(lines, fmt.Sprintf("  Warning:  %d", summary.Warning))
 	}
@@ -382,9 +389,6 @@ func printAuditSummary(total int, results []*audit.Result) {
 		parts := []string{}
 		if summary.Critical > 0 {
 			parts = append(parts, fmt.Sprintf("%d critical", summary.Critical))
-		}
-		if summary.High > 0 {
-			parts = append(parts, fmt.Sprintf("%d high", summary.High))
 		}
 		lines = append(lines, fmt.Sprintf("  Failed:   %d (%s)", summary.Failed, joinParts(parts)))
 	} else {
@@ -404,10 +408,10 @@ func summarizeAuditResults(total int, results []*audit.Result) auditRunSummary {
 		summary.Medium += m
 
 		switch r.MaxSeverity() {
-		case audit.SeverityCritical, audit.SeverityHigh:
+		case audit.SeverityCritical:
 			summary.Failed++
 			summary.FailSkills = append(summary.FailSkills, r.SkillName)
-		case audit.SeverityMedium:
+		case audit.SeverityHigh, audit.SeverityMedium:
 			summary.Warning++
 			summary.WarnSkills = append(summary.WarnSkills, r.SkillName)
 		default:

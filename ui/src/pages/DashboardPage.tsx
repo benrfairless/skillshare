@@ -553,9 +553,12 @@ function SecurityAuditSection() {
             Security Audit
           </h3>
           {scanned && auditData && auditData.summary.failed > 0 && (
-            <Badge variant="danger">{auditData.summary.failed} issue(s)</Badge>
+            <Badge variant="danger">{auditData.summary.failed} critical</Badge>
           )}
-          {scanned && auditData && auditData.summary.failed === 0 && (
+          {scanned && auditData && auditData.summary.failed === 0 && auditData.summary.warning > 0 && (
+            <Badge variant="warning">{auditData.summary.warning} warning(s)</Badge>
+          )}
+          {scanned && auditData && auditData.summary.failed === 0 && auditData.summary.warning === 0 && (
             <Badge variant="success">All clear</Badge>
           )}
         </div>
@@ -625,7 +628,7 @@ function SecurityAuditSection() {
             >
               {auditData.summary.failed}
             </p>
-            <p className="text-xs text-pencil-light">Failed</p>
+            <p className="text-xs text-pencil-light">Critical</p>
           </div>
         </div>
       )}

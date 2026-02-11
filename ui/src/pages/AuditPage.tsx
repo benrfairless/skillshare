@@ -33,7 +33,9 @@ export default function AuditPage() {
       setData(res);
       const { summary } = res;
       if (summary.failed > 0) {
-        toast(`Audit complete: ${summary.failed} skill(s) with issues`, 'warning');
+        toast(`Audit complete: ${summary.failed} skill(s) with critical issues`, 'warning');
+      } else if (summary.warning > 0) {
+        toast(`Audit complete: ${summary.warning} skill(s) with warnings`, 'warning');
       } else {
         toast('Audit complete: all skills passed', 'success');
       }
@@ -101,7 +103,7 @@ export default function AuditPage() {
             <StatCard label="Total" value={data.summary.total} icon={FileText} color="pencil" />
             <StatCard label="Passed" value={data.summary.passed} icon={ShieldCheck} color="success" />
             <StatCard label="Warnings" value={data.summary.warning} icon={AlertTriangle} color="warning" />
-            <StatCard label="Issues" value={data.summary.failed} icon={ShieldX} color="danger" />
+            <StatCard label="Critical" value={data.summary.failed} icon={ShieldX} color="danger" />
           </div>
 
           {/* Findings list */}

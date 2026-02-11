@@ -15,8 +15,8 @@ skillshare audit -p                # Scan project skills
 | Level | Meaning | Install behavior |
 |-------|---------|-----------------|
 | **CRITICAL** | Prompt injection, data exfil, credential theft | **Blocked** (use `--force` to override) |
-| **HIGH** | Destructive commands, suspicious URLs | Warning shown |
-| **MEDIUM** | Obfuscation, encoded content | Warning shown |
+| **HIGH** | Destructive commands, hidden unicode, obfuscation | Warning shown |
+| **MEDIUM** | Suspicious URLs, system path writes | Warning shown |
 
 ## Install Integration
 
@@ -49,6 +49,8 @@ Summary box:
 ```
 Scanned: 5 | Passed: 3 | Warning: 1 | Failed: 1
 ```
+
+`Failed` only counts skills that contain at least one `CRITICAL` finding. `HIGH` and `MEDIUM` findings are grouped into `Warning`.
 
 ## Logging
 
