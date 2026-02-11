@@ -4,7 +4,9 @@ targets:
     global_path: "~/.adal/skills"
     project_path: ".adal/skills"
   - global_name: agents
+    project_name: agents
     global_path: "~/.config/agents/skills"
+    project_path: ".agents/skills"
   - global_name: amp
     project_name: amp
     global_path: "~/.config/agents/skills"

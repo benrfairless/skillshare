@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
@@ -25,6 +24,7 @@ type detectedProjectTarget struct {
 	path         string
 	exists       bool
 	parentExists bool
+	members      []string // non-nil for grouped targets sharing the same path
 }
 
 func parseProjectInitArgs(args []string) (projectInitOptions, bool, error) {
@@ -164,31 +164,37 @@ func performProjectInit(root string, opts projectInitOptions) error {
 func detectProjectCLIDirectories(root string) []detectedProjectTarget {
 	ui.Header("Detecting AI CLI directories")
 
-	projectTargets := config.ProjectTargets()
-	names := make([]string, 0, len(projectTargets))
-	for name := range projectTargets {
-		names = append(names, name)
-	}
-	sort.Strings(names)
+	grouped := config.GroupedProjectTargets()
 
 	var detected []detectedProjectTarget
-	for _, name := range names {
-		target := projectTargets[name]
-		relPath := filepath.FromSlash(target.Path)
+	for _, g := range grouped {
+		relPath := filepath.FromSlash(g.Path)
 		fullPath := filepath.Join(root, relPath)
 
+		entry := detectedProjectTarget{
+			name:    g.Name,
+			path:    relPath,
+			members: g.Members,
+		}
+
 		if info, err := os.Stat(fullPath); err == nil && info.IsDir() {
-			ui.Success("Found: %s (%s)", name, relPath)
-			detected = append(detected, detectedProjectTarget{name: name, path: relPath, exists: true})
+			entry.exists = true
+			if len(g.Members) > 0 {
+				ui.Success("Found: %s (%s) — %s", g.Name, relPath, strings.Join(g.Members, ", "))
+			} else {
+				ui.Success("Found: %s (%s)", g.Name, relPath)
+			}
+			detected = append(detected, entry)
 			continue
 		}
 
 		parentRel := filepath.Dir(relPath)
 		if parentRel != "." {
 			parentPath := filepath.Join(root, parentRel)
-			if info, err := os.Stat(parentPath); err == nil && info.IsDir() {
-				ui.Info("Found: %s (not initialized)", name)
-				detected = append(detected, detectedProjectTarget{name: name, path: relPath, parentExists: true})
+			if _, err := os.Stat(parentPath); err == nil {
+				entry.parentExists = true
+				ui.Info("Found: %s (not initialized)", g.Name)
+				detected = append(detected, entry)
 			}
 		}
 	}
@@ -197,17 +203,15 @@ func detectProjectCLIDirectories(root string) []detectedProjectTarget {
 }
 
 func listAllProjectTargets() []detectedProjectTarget {
-	projectTargets := config.ProjectTargets()
-	names := make([]string, 0, len(projectTargets))
-	for name := range projectTargets {
-		names = append(names, name)
-	}
-	sort.Strings(names)
+	grouped := config.GroupedProjectTargets()
 
 	var available []detectedProjectTarget
-	for _, name := range names {
-		target := projectTargets[name]
-		available = append(available, detectedProjectTarget{name: name, path: filepath.FromSlash(target.Path)})
+	for _, g := range grouped {
+		available = append(available, detectedProjectTarget{
+			name:    g.Name,
+			path:    filepath.FromSlash(g.Path),
+			members: g.Members,
+		})
 	}
 	return available
 }
@@ -218,17 +222,14 @@ func promptProjectTargets(available []detectedProjectTarget) ([]config.ProjectTa
 	options := make([]string, len(available))
 	defaultIndices := []int{}
 	for i, target := range available {
-		status := ""
-		if target.exists {
-			status = ""
-		} else if target.parentExists {
-			status = "(not initialized)"
+		label := fmt.Sprintf("%-14s %s", target.name, target.path)
+		if len(target.members) > 0 {
+			label += fmt.Sprintf("  (%s)", strings.Join(target.members, ", "))
 		}
-		if status != "" {
-			options[i] = fmt.Sprintf("%-12s %s %s", target.name, target.path, status)
-		} else {
-			options[i] = fmt.Sprintf("%-12s %s", target.name, target.path)
+		if !target.exists && target.parentExists {
+			label += " (not initialized)"
 		}
+		options[i] = label
 
 		if target.exists || target.parentExists {
 			defaultIndices = append(defaultIndices, i)
@@ -294,7 +295,9 @@ func createProjectTargetDirs(root string, targets []config.ProjectTargetEntry) e
 	return nil
 }
 
-// reinitProjectWithDiscover detects new targets and adds them to existing project config
+// reinitProjectWithDiscover detects new targets and adds them to existing project config.
+// Uses path-based dedup so that e.g. an existing "amp" entry (which maps to .agents/skills)
+// correctly prevents the "agents" group from appearing as "new".
 func reinitProjectWithDiscover(root string, opts projectInitOptions) error {
 	ui.Logo(version)
 	ui.Header("Discovering new targets")
@@ -304,22 +307,28 @@ func reinitProjectWithDiscover(root string, opts projectInitOptions) error {
 		return err
 	}
 
-	// Build set of existing target names
-	existing := make(map[string]bool)
+	// Build set of existing paths for accurate dedup.
+	knownTargets := config.ProjectTargets()
+	existingPaths := make(map[string]bool)
 	for _, t := range cfg.Targets {
-		existing[t.Name] = true
+		name := strings.TrimSpace(t.Name)
+		if t.Path != "" {
+			existingPaths[filepath.FromSlash(t.Path)] = true
+		} else if known, ok := knownTargets[name]; ok {
+			existingPaths[filepath.FromSlash(known.Path)] = true
+		}
 	}
 
-	// Detect AI CLI directories in project
+	// Detect AI CLI directories (already grouped by shared paths)
 	detected := detectProjectCLIDirectories(root)
 	if len(detected) == 0 {
 		detected = listAllProjectTargets()
 	}
 
-	// Filter out already-configured targets
+	// Filter out targets whose path is already covered
 	var newTargets []detectedProjectTarget
 	for _, d := range detected {
-		if !existing[d.name] {
+		if !existingPaths[filepath.FromSlash(d.path)] {
 			newTargets = append(newTargets, d)
 		}
 	}
@@ -333,30 +342,28 @@ func reinitProjectWithDiscover(root string, opts projectInitOptions) error {
 
 	var selected []config.ProjectTargetEntry
 
-	// Non-interactive: --select
+	// Non-interactive: --select (accepts canonical or member names)
 	if opts.selectArg != "" {
 		names := strings.Split(opts.selectArg, ",")
+		seen := make(map[string]bool)
 		for _, name := range names {
 			name = strings.TrimSpace(name)
 			if name == "" {
 				continue
 			}
-			found := false
-			for _, d := range newTargets {
-				if d.name == name {
-					found = true
-					break
-				}
-			}
-			if !found {
-				if existing[name] {
-					ui.Info("Target already in config: %s (skipped)", name)
+			target := findGroupedTarget(newTargets, name)
+			if target == nil {
+				if known, ok := knownTargets[name]; ok && existingPaths[filepath.FromSlash(known.Path)] {
+					ui.Info("Target already covered: %s (skipped)", name)
 				} else {
 					ui.Warning("Target not detected: %s (skipped)", name)
 				}
 				continue
 			}
-			selected = append(selected, config.ProjectTargetEntry{Name: name})
+			if !seen[target.name] {
+				seen[target.name] = true
+				selected = append(selected, config.ProjectTargetEntry{Name: target.name})
+			}
 		}
 	} else {
 		// Interactive selection
@@ -397,6 +404,21 @@ func reinitProjectWithDiscover(root string, opts projectInitOptions) error {
 	}
 	ui.Info("Run 'skillshare sync' to sync skills to new targets")
 
+	return nil
+}
+
+// findGroupedTarget finds a target by canonical name or as a member of a group.
+func findGroupedTarget(targets []detectedProjectTarget, name string) *detectedProjectTarget {
+	for i, d := range targets {
+		if d.name == name {
+			return &targets[i]
+		}
+		for _, member := range d.members {
+			if member == name {
+				return &targets[i]
+			}
+		}
+	}
 	return nil
 }
 

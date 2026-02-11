@@ -3,6 +3,7 @@ package config
 import (
 	_ "embed"
 	"path/filepath"
+	"sort"
 	"sync"
 
 	"gopkg.in/yaml.v3"
@@ -92,6 +93,75 @@ func LookupGlobalTarget(name string) (TargetConfig, bool) {
 	targets := DefaultTargets()
 	target, ok := targets[name]
 	return target, ok
+}
+
+// GroupedProjectTarget represents a project target, optionally grouped with
+// other targets that share the same project path.
+type GroupedProjectTarget struct {
+	Name    string   // canonical name (alphabetically first among members)
+	Path    string   // normalized project path
+	Members []string // other project names sharing this path (nil if unique)
+}
+
+// GroupedProjectTargets returns project targets deduplicated by path.
+// When multiple targets share the same project path, they are merged into a
+// single entry whose Name is the alphabetically-first member. Members lists
+// all other project names that share the path. Single-path targets have nil Members.
+func GroupedProjectTargets() []GroupedProjectTarget {
+	specs, err := loadTargetSpecs()
+	if err != nil {
+		return nil
+	}
+
+	// Group by normalized project path, preserving insertion order.
+	type pathGroup struct {
+		path  string
+		names []string
+	}
+	pathMap := make(map[string]*pathGroup)
+	var pathOrder []string
+
+	for _, spec := range specs {
+		if spec.ProjectName == "" || spec.ProjectPath == "" {
+			continue
+		}
+		path := normalizeTargetPath(spec.ProjectPath)
+		if pg, ok := pathMap[path]; ok {
+			pg.names = append(pg.names, spec.ProjectName)
+		} else {
+			pathMap[path] = &pathGroup{path: path, names: []string{spec.ProjectName}}
+			pathOrder = append(pathOrder, path)
+		}
+	}
+
+	var result []GroupedProjectTarget
+	for _, path := range pathOrder {
+		pg := pathMap[path]
+		sort.Strings(pg.names)
+
+		if len(pg.names) == 1 {
+			result = append(result, GroupedProjectTarget{
+				Name: pg.names[0],
+				Path: pg.path,
+			})
+			continue
+		}
+
+		canonical := pg.names[0]
+		members := make([]string, 0, len(pg.names)-1)
+		for _, name := range pg.names {
+			if name != canonical {
+				members = append(members, name)
+			}
+		}
+		result = append(result, GroupedProjectTarget{
+			Name:    canonical,
+			Path:    pg.path,
+			Members: members,
+		})
+	}
+
+	return result
 }
 
 func normalizeTargetPath(path string) string {
