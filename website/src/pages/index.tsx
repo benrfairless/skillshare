@@ -160,7 +160,7 @@ function HeroSection() {
         </div>
 
         <p className={styles.heroSubtitle}>
-          Sync everywhere with one command. Claude Code, OpenCode, Cursor & 40+ more.
+          Sync everywhere with one command. Claude Code, OpenCode, Cursor & 45+ more.
         </p>
 
         <InstallTabs />
@@ -343,7 +343,7 @@ const supportedCLIs = [
   'Cursor',
   'Gemini CLI',
   'Codex',
-  '40+ more',
+  '45+ more',
 ];
 
 function SupportedSection() {

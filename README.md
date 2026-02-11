@@ -20,7 +20,7 @@
 
 <p align="center">
   <strong>One source of truth for AI CLI skills. Sync everywhere with one command — from personal to organization-wide.</strong><br>
-  Claude Code, OpenClaw, OpenCode & 40+ more.
+  Claude Code, OpenClaw, OpenCode & 45+ more.
 </p>
 
 <p align="center">
