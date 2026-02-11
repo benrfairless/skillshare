@@ -77,6 +77,49 @@ name:   spaced-value
 			field:    "name",
 			expected: "spaced-value",
 		},
+		{
+			name: "handles folded block scalar >-",
+			content: `---
+name: my-skill
+description: >-
+  Verify and fix ASCII box-drawing
+  diagram alignment in markdown files.
+---
+# Content`,
+			field:    "description",
+			expected: "Verify and fix ASCII box-drawing diagram alignment in markdown files.",
+		},
+		{
+			name: "handles folded block scalar >",
+			content: `---
+description: >
+  First line
+  second line
+---`,
+			field:    "description",
+			expected: "First line second line",
+		},
+		{
+			name: "handles literal block scalar |",
+			content: `---
+description: |
+  Line one
+  Line two
+---`,
+			field:    "description",
+			expected: "Line one Line two",
+		},
+		{
+			name: "handles block scalar followed by another field",
+			content: `---
+description: >-
+  Multi-line description
+  goes here.
+version: 1.0.0
+---`,
+			field:    "description",
+			expected: "Multi-line description goes here.",
+		},
 	}
 
 	for _, tt := range tests {

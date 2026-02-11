@@ -23,6 +23,8 @@ type SkillManifest = {
 function parseScalarValue(raw: string): string | undefined {
   const trimmed = raw.trim();
   if (!trimmed) return undefined;
+  // YAML block scalar indicators — fall through to block reader
+  if (/^[>|][+-]?$/.test(trimmed)) return undefined;
   if (
     (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
     (trimmed.startsWith("'") && trimmed.endsWith("'"))

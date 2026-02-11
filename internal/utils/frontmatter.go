@@ -48,7 +48,17 @@ func ParseSkillName(skillPath string) (string, error) {
 	return "", nil // Name not found
 }
 
+// isYAMLBlockIndicator returns true for YAML block scalar indicators (>, >-, >+, |, |-, |+).
+func isYAMLBlockIndicator(s string) bool {
+	switch s {
+	case ">", ">-", ">+", "|", "|-", "|+":
+		return true
+	}
+	return false
+}
+
 // ParseFrontmatterField reads a SKILL.md file and extracts the value of a given frontmatter field.
+// It supports both inline values and YAML block scalars (>, >-, |, |-).
 func ParseFrontmatterField(filePath, field string) string {
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -75,6 +85,24 @@ func ParseFrontmatterField(filePath, field string) string {
 			parts := strings.SplitN(line, ":", 2)
 			if len(parts) == 2 {
 				val := strings.TrimSpace(parts[1])
+				// Handle YAML block scalar indicators — read indented continuation lines
+				if isYAMLBlockIndicator(val) {
+					var blockParts []string
+					for scanner.Scan() {
+						next := scanner.Text()
+						trimmed := strings.TrimSpace(next)
+						if trimmed == "---" {
+							break
+						}
+						// Block continues while lines are indented
+						if len(next) > 0 && (next[0] == ' ' || next[0] == '\t') {
+							blockParts = append(blockParts, trimmed)
+						} else {
+							break
+						}
+					}
+					return strings.Join(blockParts, " ")
+				}
 				val = strings.Trim(val, `"'`)
 				return val
 			}

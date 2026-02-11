@@ -5,6 +5,7 @@ import remarkGfm from 'remark-gfm';
 import CodeMirror from '@uiw/react-codemirror';
 import { json } from '@codemirror/lang-json';
 import { yaml } from '@codemirror/lang-yaml';
+import { python } from '@codemirror/lang-python';
 import { EditorView } from '@codemirror/view';
 import Card from './Card';
 import HandButton from './HandButton';
@@ -47,8 +48,11 @@ export default function FileViewerModal({ skillName, filepath, onClose }: FileVi
     const exts = [EditorView.lineWrapping, EditorView.editable.of(false)];
     if (data.contentType === 'application/json') exts.push(json());
     else if (data.contentType === 'text/yaml') exts.push(yaml());
+    // Infer language from filename extension
+    const ext = filepath.split('.').pop()?.toLowerCase();
+    if (ext === 'py') exts.push(python());
     return exts;
-  }, [data]);
+  }, [data, filepath]);
 
   return (
     <div
@@ -106,7 +110,7 @@ export default function FileViewerModal({ skillName, filepath, onClose }: FileVi
                   <div className="prose-hand">
                     <Markdown remarkPlugins={[remarkGfm]}>{data.content}</Markdown>
                   </div>
-                ) : data.contentType === 'application/json' || data.contentType === 'text/yaml' ? (
+                ) : (
                   <CodeMirror
                     value={data.content}
                     extensions={cmExtensions}
@@ -121,13 +125,6 @@ export default function FileViewerModal({ skillName, filepath, onClose }: FileVi
                       autocompletion: false,
                     }}
                   />
-                ) : (
-                  <pre
-                    className="text-sm text-pencil whitespace-pre-wrap break-words"
-                    style={{ fontFamily: "'Courier New', monospace" }}
-                  >
-                    {data.content}
-                  </pre>
                 )}
               </>
             )}
