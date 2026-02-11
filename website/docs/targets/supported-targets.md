@@ -8,7 +8,7 @@ Complete list of AI CLIs that skillshare supports out of the box.
 
 ## Overview
 
-Skillshare supports **44+ AI CLI tools**. When you run `skillshare init`, it automatically detects and configures any installed tools.
+Skillshare supports **43+ AI CLI tools**. When you run `skillshare init`, it automatically detects and configures any installed tools.
 
 ---
 
@@ -66,7 +66,7 @@ These are auto-detected during `skillshare init`:
 | cline | `~/.cline/skills` |
 | codebuddy | `~/.codebuddy/skills` |
 | codex | `~/.codex/skills` |
-| cmdcode | `~/.cmdcode/skills` |
+| commandcode | `~/.commandcode/skills` |
 | continue | `~/.continue/skills` |
 | copilot | `~/.github-copilot/skills` |
 | crush | `~/.crush/skills` |

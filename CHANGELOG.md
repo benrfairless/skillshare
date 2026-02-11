@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.11.5] - 2026-02-11
+
+### Added
+- **`--into` flag for install** — organize skills into subdirectories (`skillshare install repo --into frontend` places skills under `skills/frontend/`)
+- **Nested skill support in check/update/uninstall** — recursive directory walk detects skills in organizational folders; `update` and `uninstall` resolve short names (e.g., `update vue` finds `frontend/vue/vue-best-practices`)
+- **Configurable audit block threshold** — `audit.block_threshold` in config sets which severity blocks install (default `CRITICAL`); `audit --threshold <level>` overrides per-command
+- **Audit path scanning** — `skillshare audit <path>` scans arbitrary files or directories, not only installed skills
+- **Audit JSON output** — `skillshare audit --json` for machine-readable results with risk scores
+- **`--skip-audit` flag for install** — bypass security scanning for a single install command
+- **Risk scoring** — weighted risk score and label (clean/low/medium/high/critical) per scanned skill
+- **LOW and INFO severity levels** — lighter-weight findings that contribute to risk score without blocking
+- **IBM Bob target** — added to supported AI CLIs (global: `~/.bob/skills`, project: `.bob/skills`)
+- **JS/TS syntax highlighting in file viewer** — Web UI highlights `.js`, `.ts`, `.jsx`, `.tsx` files with CodeMirror
+- **Project init agent grouping** — agents sharing the same project skills path (Amp, Codex, Copilot, Gemini, Goose, etc.) are collapsed into a single selectable group entry
+
+### Changed
+- **Goose project path** updated from `.goose/skills` to `.agents/skills` (universal agent directory convention)
+- **Audit summary includes all severity levels** — LOW/INFO counts, risk score, and threshold shown in summary box and log entries
+
+### Fixed
+- Web UI nested skill update now uses full relative path instead of basename only
+- YAML block scalar frontmatter (`>-`, `|`, `|-`) parsed correctly in skill detail view
+- CodeMirror used for all non-markdown files in file viewer (previously plain `<pre>`)
+
 ## [0.11.4] - 2026-02-11
 
 ### Added
