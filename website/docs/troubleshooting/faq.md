@@ -298,4 +298,4 @@ No scanner is perfect. `skillshare audit` catches common patterns like prompt in
 
 - [Common Errors](./common-errors) — Error solutions
 - [Windows](./windows) — Windows-specific FAQ
-- [Troubleshooting Workflow](/docs/workflows/troubleshooting-workflow) — Step-by-step debugging
+- [Troubleshooting Workflow](./troubleshooting-workflow) — Step-by-step debugging

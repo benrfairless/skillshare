@@ -13,7 +13,7 @@ Common usage patterns for skillshare.
 | Use skills day-to-day | [Daily Workflow](./daily-workflow) |
 | Find and install new skills | [Skill Discovery](./skill-discovery) |
 | Protect my skills | [Backup & Restore](./backup-restore) |
-| Fix something broken | [Troubleshooting Workflow](./troubleshooting-workflow) |
+| Fix something broken | [Troubleshooting](/docs/troubleshooting) |
 
 ---
 

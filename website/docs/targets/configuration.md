@@ -131,6 +131,76 @@ ignore:
 - `**/.DS_Store`
 - `**/.git/**`
 
+### `audit`
+
+Security audit configuration.
+
+```yaml
+audit:
+  block_threshold: CRITICAL
+```
+
+| Field | Values | Default | Description |
+|-------|--------|---------|-------------|
+| `block_threshold` | `CRITICAL`, `HIGH`, `MEDIUM`, `LOW`, `INFO` | `CRITICAL` | Minimum severity to block `skillshare install` |
+
+- `block_threshold` only controls when install is **blocked** — scanning always runs
+- Use `--skip-audit` to bypass scanning for a single install
+- Use `--force` to override a block (findings are still shown)
+
+---
+
+## Project Config
+
+**Location:** `.skillshare/config.yaml` (in project root)
+
+Project config uses a different format from global config.
+
+```yaml
+# Targets — string or object form
+targets:
+  - claude-code                    # String: known target with defaults
+  - cursor
+  - name: custom-ide               # Object: custom path and mode
+    path: ./tools/ide/skills
+    mode: symlink
+
+# Remote skills — auto-managed by install/uninstall
+skills:
+  - name: pdf
+    source: anthropic/skills/pdf
+  - name: _team-skills
+    source: github.com/team/skills
+    tracked: true                  # Cloned with git history
+
+# Audit — same as global
+audit:
+  block_threshold: HIGH
+```
+
+### `targets` (project)
+
+Supports two YAML forms:
+
+| Form | Example | When to use |
+|------|---------|-------------|
+| **String** | `- claude-code` | Known target, default path and merge mode |
+| **Object** | `- name: x, path: ..., mode: ...` | Custom path or symlink mode |
+
+### `skills` (project only)
+
+Tracks remotely-installed skills. Auto-managed by `skillshare install -p` and `skillshare uninstall -p`.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `name` | Yes | Skill directory name |
+| `source` | Yes | GitHub URL or local path |
+| `tracked` | No | `true` if installed with `--track` (default: `false`) |
+
+:::tip Portable Manifest
+`config.yaml` is a portable skill manifest. Anyone who clones the repo can run `skillshare install -p && skillshare sync` to reproduce the same setup.
+:::
+
 ---
 
 ## Managing Config
@@ -161,6 +231,52 @@ skillshare init
 
 ---
 
+## Custom Audit Rules
+
+**Location:**
+
+| Mode | Path |
+|------|------|
+| Global | `~/.config/skillshare/audit-rules.yaml` |
+| Project | `.skillshare/audit-rules.yaml` |
+
+Rules are merged in order: **built-in → global → project**. You can add new rules, disable built-in rules, or override severity.
+
+```yaml
+rules:
+  # Add a custom rule
+  - id: flag-todo
+    severity: MEDIUM
+    pattern: todo-comment
+    message: "TODO comment found"
+    regex: '(?i)\bTODO\b'
+
+  # Disable a built-in rule
+  - id: system-writes-0
+    enabled: false
+```
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `id` | Yes | Unique rule identifier |
+| `severity` | Yes | `CRITICAL`, `HIGH`, `MEDIUM`, `LOW`, `INFO` |
+| `pattern` | Yes | Pattern category name |
+| `message` | Yes | Human-readable finding description |
+| `regex` | Yes | Regular expression to match |
+| `exclude` | No | Suppress match when line also matches this regex |
+| `enabled` | No | Set `false` to disable a built-in rule |
+
+To scaffold a starter file:
+
+```bash
+skillshare audit --init-rules       # Global
+skillshare audit --init-rules -p    # Project
+```
+
+See [audit command](/docs/commands/audit) for full details.
+
+---
+
 ## Environment Variables
 
 | Variable | Description |
@@ -177,16 +293,29 @@ SKILLSHARE_CONFIG=~/custom-config.yaml skillshare status
 
 ## Skill Metadata
 
-When you install a skill, skillshare creates a `.skillshare.yaml` file:
+When you install a skill, skillshare creates a `.skillshare-meta.json` file:
 
-```yaml
-# ~/.config/skillshare/skills/pdf/.skillshare.yaml
-source: github.com/anthropics/skills/skills/pdf
-installed_at: 2026-01-20T15:30:00Z
-type: git
+```json
+{
+  "source": "anthropics/skills/skills/pdf",
+  "type": "github",
+  "installed_at": "2026-01-20T15:30:00Z",
+  "repo_url": "https://github.com/anthropics/skills.git",
+  "subdir": "skills/pdf",
+  "version": "abc1234"
+}
 ```
 
-This is used by `skillshare update` to know where to fetch updates from.
+| Field | Description |
+|-------|-------------|
+| `source` | Original install source input |
+| `type` | Source type (`github`, `local`, etc.) |
+| `installed_at` | Installation timestamp |
+| `repo_url` | Git clone URL (git sources only) |
+| `subdir` | Subdirectory path (monorepo sources only) |
+| `version` | Git commit hash at install time |
+
+This is used by `skillshare update` and `skillshare check` to know where to fetch updates from.
 
 **Don't edit this file manually.**
 

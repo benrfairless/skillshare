@@ -149,16 +149,29 @@ Response: "The function looks correct but could benefit from type hints..."
 
 ## Skill Metadata File
 
-When you install a skill, skillshare creates a `.skillshare.yaml` file:
+When you install a skill, skillshare creates a `.skillshare-meta.json` file:
 
-```yaml
-# ~/.config/skillshare/skills/pdf/.skillshare.yaml
-source: github.com/anthropics/skills/skills/pdf
-installed_at: 2026-01-20T15:30:00Z
-type: git
+```json
+{
+  "source": "anthropics/skills/skills/pdf",
+  "type": "github",
+  "installed_at": "2026-01-20T15:30:00Z",
+  "repo_url": "https://github.com/anthropics/skills.git",
+  "subdir": "skills/pdf",
+  "version": "abc1234"
+}
 ```
 
-This is used by `skillshare update` to know where to fetch updates from.
+| Field | Description |
+|-------|-------------|
+| `source` | Original install source input |
+| `type` | Source type (`github`, `local`, etc.) |
+| `installed_at` | Installation timestamp |
+| `repo_url` | Git clone URL (git sources only) |
+| `subdir` | Subdirectory path (monorepo sources only) |
+| `version` | Git commit hash at install time |
+
+This is used by `skillshare update` and `skillshare check` to know where to fetch updates from.
 
 **Don't edit this file manually.**
 

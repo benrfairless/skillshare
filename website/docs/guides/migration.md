@@ -117,6 +117,49 @@ skillshare sync
 
 ---
 
+## From Committed Project Skills
+
+If your repo already has skills committed in `.claude/skills/`, `.cursor/skills/`, or similar directories:
+
+### Step 1: Initialize project mode
+
+```bash
+cd my-project
+skillshare init -p
+```
+
+### Step 2: Move skills to `.skillshare/skills/`
+
+```bash
+# Copy existing skills to skillshare source
+cp -r .claude/skills/my-skill .skillshare/skills/
+cp -r .claude/skills/api-guide .skillshare/skills/
+
+# Remove originals (sync will recreate as symlinks)
+rm -rf .claude/skills/my-skill .claude/skills/api-guide
+```
+
+### Step 3: Sync
+
+```bash
+skillshare sync
+```
+
+Now `.claude/skills/my-skill` is a symlink to `.skillshare/skills/my-skill` — and all other targets (Cursor, Windsurf, etc.) get the same skills automatically.
+
+### Step 4: Commit the migration
+
+```bash
+git add .skillshare/ .claude/skills/ .cursor/skills/
+git commit -m "Migrate project skills to skillshare"
+```
+
+:::tip Multi-Tool Benefit
+Before: skills only worked in one AI CLI. After: the same skills are automatically available in every configured target.
+:::
+
+---
+
 ## From Team-Specific Solutions
 
 If your team has custom skill sharing:
@@ -127,24 +170,98 @@ If your team has custom skill sharing:
 - How are they shared?
 - How are they updated?
 
-### Step 2: Create team skills repo
+### Step 2: Choose your migration path
+
+**Option A: Global mode** — skills available across all projects on each machine.
 
 ```bash
-# Export existing skills
+# Create team skills repo
 cp -r /current/team/skills ~/new-team-skills
-cd ~/new-team-skills
-git init
-git add .
-git commit -m "Migrate to skillshare"
+cd ~/new-team-skills && git init && git add . && git commit -m "Migrate to skillshare"
 git push origin main
-```
 
-### Step 3: Team members install
-
-Share the command:
-```bash
+# Team members install globally
 skillshare install github.com/org/team-skills --track && skillshare sync
 ```
+
+**Option B: Project mode** — skills scoped to a specific repo, shared via git.
+
+```bash
+cd my-project
+skillshare init -p
+
+# Move team skills into project source
+cp -r /current/team/skills/* .skillshare/skills/
+
+# Sync and commit
+skillshare sync
+git add .skillshare/
+git commit -m "Add team skills via skillshare"
+```
+
+New team members get everything with:
+```bash
+git clone github.com/org/my-project
+cd my-project
+skillshare install -p && skillshare sync
+```
+
+**Option C: Both** — organization-wide standards globally, project-specific skills per-repo.
+
+```bash
+# Organization standards (global)
+skillshare install github.com/org/standards --track && skillshare sync
+
+# Project-specific skills (project mode)
+cd my-project
+skillshare init -p
+skillshare install github.com/org/project-skills -p && skillshare sync
+```
+
+:::tip Which to Choose?
+- **Global**: coding standards, security audits — things every project needs
+- **Project**: API conventions, domain rules, deployment guides — things specific to one repo
+- **Both**: most teams end up here as they grow
+:::
+
+---
+
+## From Global to Project
+
+If you have skills in global mode that belong to a specific project:
+
+### Step 1: Initialize project mode
+
+```bash
+cd my-project
+skillshare init -p
+```
+
+### Step 2: Copy skills from global source
+
+```bash
+# Copy specific skills
+cp -r ~/.config/skillshare/skills/api-guide .skillshare/skills/
+cp -r ~/.config/skillshare/skills/deploy-rules .skillshare/skills/
+```
+
+### Step 3: Remove from global (optional)
+
+```bash
+skillshare uninstall api-guide
+skillshare uninstall deploy-rules
+skillshare sync   # Clean up global symlinks
+```
+
+### Step 4: Sync and commit
+
+```bash
+skillshare sync   # Auto-detects project mode
+git add .skillshare/
+git commit -m "Move project-specific skills to project mode"
+```
+
+After this, the skills are scoped to this repo and shared with the team via git — no longer cluttering your global setup.
 
 ---
 

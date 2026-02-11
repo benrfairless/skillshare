@@ -84,5 +84,5 @@ If you can't resolve the issue:
 
 ## Related
 
-- [Troubleshooting Workflow](/docs/workflows/troubleshooting-workflow) — Step-by-step debugging
+- [Troubleshooting Workflow](./troubleshooting-workflow) — Step-by-step debugging
 - [Commands: doctor](/docs/commands/doctor) — Doctor command details

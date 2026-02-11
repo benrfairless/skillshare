@@ -15,7 +15,7 @@ Directory layout and file locations for skillshare.
 ├── skills/                  # Source directory
 │   ├── my-skill/            # Regular skill
 │   │   ├── SKILL.md         # Skill definition (required)
-│   │   └── .skillshare.yaml # Install metadata (auto-generated)
+│   │   └── .skillshare-meta.json # Install metadata (auto-generated)
 │   ├── code-review/         # Another skill
 │   │   └── SKILL.md
 │   └── _team-skills/        # Tracked repository
@@ -95,7 +95,7 @@ See [Configuration](/docs/targets/configuration) for full reference.
 skills/
 ├── skill-name/              # Skill directory
 │   ├── SKILL.md             # Required: skill definition
-│   ├── .skillshare.yaml     # Optional: install metadata
+│   ├── .skillshare-meta.json     # Optional: install metadata
 │   ├── examples/            # Optional: example files
 │   └── templates/           # Optional: code templates
 ├── frontend/                # Category folder (via --into or manual)
@@ -127,17 +127,22 @@ Instructions for the AI...
 
 See [Skill Format](/docs/concepts/skill-format) for details.
 
-### .skillshare.yaml (Auto-generated)
+### .skillshare-meta.json (Auto-generated)
 
 Metadata about where the skill was installed from:
 
-```yaml
-source: github.com/org/repo/path/to/skill
-installed_at: 2026-01-20T15:30:00Z
-type: git
+```json
+{
+  "source": "github.com/org/repo/path/to/skill",
+  "type": "github",
+  "installed_at": "2026-01-20T15:30:00Z",
+  "repo_url": "https://github.com/org/repo.git",
+  "subdir": "path/to/skill",
+  "version": "abc1234"
+}
 ```
 
-**Don't edit this file manually.** It's used by `skillshare update`.
+**Don't edit this file manually.** It's used by `skillshare update` and `skillshare check`.
 
 ---
 

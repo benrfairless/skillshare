@@ -62,6 +62,7 @@
   --ifm-font-color-secondary: #5a5a5a;
 
   /* Typography */
+  --ifm-font-size-base: 17px;
   --ifm-heading-font-family: 'Kalam', cursive;
   --ifm-font-family-base: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
   --ifm-font-family-monospace: 'JetBrains Mono', 'Fira Code', monospace;
@@ -280,7 +281,7 @@ h1, h2, h3, h4, h5, h6 {
 
 .footer__title {
   font-family: 'Kalam', cursive;
-  font-size: 0.85rem;
+  font-size: 0.92rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -307,7 +308,7 @@ h1, h2, h3, h4, h5, h6 {
 
 .footer__link-item {
   color: var(--color-pencil-light);
-  font-size: 0.85rem;
+  font-size: 0.92rem;
   padding: 0.2rem 0;
   display: inline-block;
   transition: all 0.2s ease;
@@ -348,7 +349,7 @@ h1, h2, h3, h4, h5, h6 {
 
 .footer__copyright {
   color: var(--color-muted-dark);
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   text-align: center;
 }
 
@@ -474,7 +475,7 @@ a {
 .menu__link {
   border-radius: 8px;
   transition: all 0.2s ease;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
 }
 
 .menu__link:hover:not(.menu__link--active) {
@@ -558,7 +559,7 @@ a {
    ======================================== */
 .prism-code {
   border-radius: var(--radius-wobbly-sm) !important;
-  font-size: 0.875rem;
+  font-size: 0.92rem;
   line-height: 1.6;
 }
 
@@ -579,7 +580,7 @@ div[class*="codeBlockTitle"] {
   background: var(--color-paper-warm) !important;
   border-bottom: 1px dashed var(--color-muted-dark);
   font-family: var(--ifm-font-family-monospace);
-  font-size: 0.8rem;
+  font-size: 0.88rem;
   padding: 0.625rem 1rem;
 }
 
@@ -594,7 +595,7 @@ code:not([class*="prism"]) {
   color: var(--color-blue);
   padding: 0.12rem 0.45rem;
   border-radius: 6px;
-  font-size: 0.875em;
+  font-size: 0.92em;
   font-weight: 500;
   border: 1px dashed var(--color-muted-dark);
   box-shadow: 1px 1px 0 rgba(45, 45, 45, 0.08);
@@ -631,7 +632,7 @@ th {
   background: var(--color-postit);
   font-family: 'Kalam', cursive;
   font-weight: 700;
-  font-size: 0.85rem;
+  font-size: 0.92rem;
   padding: 0.75rem 1rem;
   text-align: left;
   color: var(--color-pencil);
@@ -803,7 +804,7 @@ blockquote {
 }
 
 .table-of-contents__link {
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   color: var(--muted-text);
   transition: all 0.2s ease;
   border-radius: 4px;
@@ -868,7 +869,7 @@ button[class*="copyButton"]:hover {
 .badge {
   border-radius: var(--radius-wobbly-sm);
   font-family: var(--ifm-font-family-monospace);
-  font-size: 0.75rem;
+  font-size: 0.82rem;
   font-weight: 500;
 }
 

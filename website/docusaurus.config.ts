@@ -88,6 +88,16 @@ const config: Config = {
           position: 'left',
         },
         {
+          to: '/docs/guides',
+          label: 'Guides',
+          position: 'left',
+        },
+        {
+          to: '/docs/targets',
+          label: 'Targets',
+          position: 'left',
+        },
+        {
           href: 'https://github.com/runkids/skillshare/releases',
           label: 'Changelog',
           position: 'right',

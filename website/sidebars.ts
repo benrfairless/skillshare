@@ -34,7 +34,6 @@ const sidebars: SidebarsConfig = {
         'workflows/daily-workflow',
         'workflows/skill-discovery',
         'workflows/backup-restore',
-        'workflows/troubleshooting-workflow',
         'workflows/project-workflow',
       ],
     },
@@ -43,15 +42,33 @@ const sidebars: SidebarsConfig = {
       label: 'Guides',
       items: [
         'guides/index',
-        'guides/creating-skills',
-        'guides/organization-sharing',
-        'guides/cross-machine-sync',
-        'guides/migration',
-        'guides/organizing-skills',
-        'guides/best-practices',
-        'guides/project-setup',
-        'guides/docker-sandbox',
-        'guides/comparison',
+        {
+          type: 'category',
+          label: 'Skills',
+          items: [
+            'guides/creating-skills',
+            'guides/organizing-skills',
+            'guides/best-practices',
+          ],
+        },
+        {
+          type: 'category',
+          label: 'Sharing',
+          items: [
+            'guides/project-setup',
+            'guides/organization-sharing',
+            'guides/cross-machine-sync',
+          ],
+        },
+        {
+          type: 'category',
+          label: 'Advanced',
+          items: [
+            'guides/migration',
+            'guides/comparison',
+            'guides/docker-sandbox',
+          ],
+        },
       ],
     },
     {
@@ -129,6 +146,7 @@ const sidebars: SidebarsConfig = {
       label: 'Troubleshooting',
       items: [
         'troubleshooting/index',
+        'troubleshooting/troubleshooting-workflow',
         'troubleshooting/common-errors',
         'troubleshooting/windows',
         'troubleshooting/faq',
