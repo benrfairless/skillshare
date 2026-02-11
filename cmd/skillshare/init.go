@@ -364,9 +364,9 @@ func detectCLIDirectories(home string) []detectedDir {
 				exists:     true,
 			})
 			if skillCount > 0 {
-				ui.Success("Found: %s (%d skills)", name, skillCount)
+				ui.Success("Found: %-12s %s (%d skills)", name, target.Path, skillCount)
 			} else {
-				ui.Info("Found: %s (empty)", name)
+				ui.Info("Found: %-12s %s (empty)", name, target.Path)
 			}
 		} else {
 			// Skills directory doesn't exist - check if parent exists (CLI installed)
@@ -379,7 +379,7 @@ func detectCLIDirectories(home string) []detectedDir {
 					hasSkills:  false,
 					exists:     false,
 				})
-				ui.Info("Found: %s (not initialized)", name)
+				ui.Info("Found: %-12s %s (not initialized)", name, target.Path)
 			}
 		}
 	}
@@ -551,6 +551,7 @@ func buildTargetsList(detected []detectedDir, copyFrom, copyFromName, targetsArg
 	}
 
 	// Create options for survey.MultiSelect
+	// Use short labels (name + status) since paths were shown during detection.
 	options := make([]string, len(detected))
 	var defaultIndices []int
 	for i, d := range detected {
@@ -564,7 +565,7 @@ func buildTargetsList(detected []detectedDir, copyFrom, copyFromName, targetsArg
 		} else {
 			status = "(not initialized)"
 		}
-		options[i] = fmt.Sprintf("%-12s %s %s", d.name, d.path, status)
+		options[i] = fmt.Sprintf("%s %s", d.name, status)
 
 		// Pre-select if this is the copyFrom target
 		if d.name == copyFromName {
