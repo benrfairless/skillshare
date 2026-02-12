@@ -54,6 +54,7 @@ export default function SearchPage() {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[] | null>(null);
   const [searching, setSearching] = useState(false);
+  const [filter, setFilter] = useState('');
   const { toast } = useToast();
 
   // Hub state
@@ -83,6 +84,7 @@ export default function SearchPage() {
       return;
     }
     setSearching(true);
+    setFilter('');
     try {
       let res: { results: SearchResult[] };
       if (mode === 'hub') {
@@ -327,12 +329,38 @@ export default function SearchPage() {
       </Card>
 
       {/* Results */}
-      {results && results.length > 0 && (
+      {results && results.length > 0 && (() => {
+        const filteredResults = results.filter((r) => {
+          if (!filter) return true;
+          const f = filter.toLowerCase();
+          return (
+            r.name.toLowerCase().includes(f) ||
+            r.description.toLowerCase().includes(f) ||
+            (r.tags ?? []).some((t) => t.toLowerCase().includes(f))
+          );
+        });
+        return (
         <div className="space-y-4">
-          <p className="text-base text-pencil-light">
-            {results.length} result{results.length !== 1 ? 's' : ''} found
-          </p>
-          {results.map((r, i) => (
+          <div className="flex items-center gap-3 flex-wrap">
+            <p className="text-base text-pencil-light whitespace-nowrap">
+              {filteredResults.length} result{filteredResults.length !== 1 ? 's' : ''} found
+            </p>
+            <div className="relative flex-1 min-w-[200px]">
+              <Search
+                size={14}
+                strokeWidth={2.5}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-dark pointer-events-none"
+              />
+              <HandInput
+                type="text"
+                placeholder="Filter by name, description, or tag..."
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                className="!pl-8 !py-1.5 !text-sm"
+              />
+            </div>
+          </div>
+          {filteredResults.map((r, i) => (
             <Card
               key={r.source}
               className={i % 2 === 0 ? 'rotate-[-0.15deg]' : 'rotate-[0.15deg]'}
@@ -357,6 +385,13 @@ export default function SearchPage() {
                   {r.description && (
                     <p className="text-base text-pencil-light mb-1.5">{r.description}</p>
                   )}
+                  {r.tags && r.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mb-1.5">
+                      {r.tags.map((tag) => (
+                        <Badge key={tag} variant="accent">#{tag}</Badge>
+                      ))}
+                    </div>
+                  )}
                   <p
                     className="text-sm text-muted-dark truncate"
                     style={{ fontFamily: "'Courier New', monospace" }}
@@ -378,7 +413,8 @@ export default function SearchPage() {
             </Card>
           ))}
         </div>
-      )}
+        );
+      })()}
 
       {results && results.length === 0 && (
         <EmptyState
