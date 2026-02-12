@@ -143,8 +143,9 @@ func searchInteractive(query string, limit int, listOnly bool, indexURL string, 
 	ui.Logo(appversion.Version)
 
 	// No query provided: prompt for one
+	isHub := indexURL != ""
 	if query == "" {
-		input, shouldExit := promptSearchQuery()
+		input, shouldExit := promptSearchQuery(isHub)
 		if shouldExit {
 			return nil
 		}
@@ -255,22 +256,28 @@ func doSearch(query string, limit int, listOnly bool, indexURL string, mode runM
 
 	spinner.Success(fmt.Sprintf("Found %d skill(s)", len(results)))
 
+	isHub := indexURL != ""
+
 	// List-only mode: show results and exit
 	if listOnly {
 		fmt.Println()
-		printSearchResults(results)
+		printSearchResults(results, isHub)
 		return false, nil
 	}
 
 	// Interactive mode: show selector
 	fmt.Println()
-	return promptInstallFromSearch(results, mode, cwd)
+	return promptInstallFromSearch(results, isHub, mode, cwd)
 }
 
-func promptSearchQuery() (string, bool) {
+func promptSearchQuery(isHub bool) (string, bool) {
 	var input string
+	msg := "Enter search keyword:"
+	if isHub {
+		msg = "Enter search keyword (empty to browse all):"
+	}
 	prompt := &survey.Input{
-		Message: "Enter search keyword:",
+		Message: msg,
 	}
 
 	err := survey.AskOne(prompt, &input)
@@ -279,8 +286,8 @@ func promptSearchQuery() (string, bool) {
 	}
 
 	input = strings.TrimSpace(input)
-	if input == "" {
-		return "", true // Empty = quit
+	if input == "" && !isHub {
+		return "", true // Empty = quit (GitHub mode only)
 	}
 
 	return input, false
@@ -306,13 +313,20 @@ func promptNextSearch() (string, bool) {
 	return input, false
 }
 
-func printSearchResults(results []search.SearchResult) {
+func printSearchResults(results []search.SearchResult, isHub bool) {
 	// Header
 	if ui.IsTTY() {
-		fmt.Printf("  %s#   %-24s %-40s %s%s\n",
-			ui.Gray, "Name", "Source", "Stars", ui.Reset)
-		fmt.Printf("  %s─── ──────────────────────── ──────────────────────────────────────── ─────%s\n",
-			ui.Gray, ui.Reset)
+		if isHub {
+			fmt.Printf("  %s#   %-24s %-40s%s\n",
+				ui.Gray, "Name", "Source", ui.Reset)
+			fmt.Printf("  %s─── ──────────────────────── ────────────────────────────────────────%s\n",
+				ui.Gray, ui.Reset)
+		} else {
+			fmt.Printf("  %s#   %-24s %-40s %s%s\n",
+				ui.Gray, "Name", "Source", "Stars", ui.Reset)
+			fmt.Printf("  %s─── ──────────────────────── ──────────────────────────────────────── ─────%s\n",
+				ui.Gray, ui.Reset)
+		}
 	}
 
 	for i, r := range results {
@@ -324,15 +338,20 @@ func printSearchResults(results []search.SearchResult) {
 			source = "..." + source[len(source)-37:]
 		}
 
-		// Format stars
-		stars := search.FormatStars(r.Stars)
-
 		if ui.IsTTY() {
-			fmt.Printf("  %s%-3s%s %-24s %s%-40s%s %s★ %s%s\n",
-				ui.Yellow, num, ui.Reset,
-				truncate(r.Name, 24),
-				ui.Gray, source, ui.Reset,
-				ui.Yellow, stars, ui.Reset)
+			if isHub {
+				fmt.Printf("  %s%-3s%s %-24s %s%s%s\n",
+					ui.Cyan, num, ui.Reset,
+					truncate(r.Name, 24),
+					ui.Gray, source, ui.Reset)
+			} else {
+				stars := search.FormatStars(r.Stars)
+				fmt.Printf("  %s%-3s%s %-24s %s%-40s%s %s★ %s%s\n",
+					ui.Yellow, num, ui.Reset,
+					truncate(r.Name, 24),
+					ui.Gray, source, ui.Reset,
+					ui.Yellow, stars, ui.Reset)
+			}
 
 			// Show description if available
 			if r.Description != "" {
@@ -341,11 +360,14 @@ func printSearchResults(results []search.SearchResult) {
 			}
 		} else {
 			// Non-TTY output
-			fmt.Printf("  %-3s %-24s %-40s ★ %s\n",
-				num,
-				truncate(r.Name, 24),
-				source,
-				stars)
+			if isHub {
+				fmt.Printf("  %-3s %-24s %s\n",
+					num, truncate(r.Name, 24), source)
+			} else {
+				stars := search.FormatStars(r.Stars)
+				fmt.Printf("  %-3s %-24s %-40s ★ %s\n",
+					num, truncate(r.Name, 24), source, stars)
+			}
 			if r.Description != "" {
 				fmt.Printf("      %s\n", truncate(r.Description, 70))
 			}
@@ -353,16 +375,22 @@ func printSearchResults(results []search.SearchResult) {
 	}
 }
 
-func promptInstallFromSearch(results []search.SearchResult, mode runMode, cwd string) (bool, error) {
+func promptInstallFromSearch(results []search.SearchResult, isHub bool, mode runMode, cwd string) (bool, error) {
 	// Build options list with name and full source
 	// First option is "Search again"
 	options := make([]string, len(results)+1)
 	options[0] = fmt.Sprintf("\033[36m⟲ Search again...\033[0m")
 
 	for i, r := range results {
-		stars := search.FormatStars(r.Stars)
-		options[i+1] = fmt.Sprintf("%-20s ★ %-5s \033[90m%s\033[0m",
-			r.Name, stars, r.Source)
+		if isHub {
+			desc := truncate(r.Description, 50)
+			options[i+1] = fmt.Sprintf("%-20s %s \033[90m%s\033[0m",
+				r.Name, desc, r.Source)
+		} else {
+			stars := search.FormatStars(r.Stars)
+			options[i+1] = fmt.Sprintf("%-20s ★ %-5s \033[90m%s\033[0m",
+				r.Name, stars, r.Source)
+		}
 	}
 
 	// Use survey Select for better UX
@@ -373,9 +401,13 @@ func promptInstallFromSearch(results []search.SearchResult, mode runMode, cwd st
 		PageSize: 12,
 	}
 
+	focusColor := "yellow"
+	if isHub {
+		focusColor = "cyan"
+	}
 	err := survey.AskOne(prompt, &selectedIdx, survey.WithIcons(func(icons *survey.IconSet) {
 		icons.SelectFocus.Text = "▸"
-		icons.SelectFocus.Format = "yellow"
+		icons.SelectFocus.Format = focusColor
 	}))
 	if err != nil {
 		return false, nil // User cancelled (Ctrl+C) - exit
@@ -442,7 +474,12 @@ func installFromSearchResultProject(result search.SearchResult, cwd string) (err
 
 	spinner := ui.StartTreeSpinner("Cloning repository...", true)
 
-	installResult, err := install.Install(source, destPath, install.InstallOptions{})
+	opts := install.InstallOptions{}
+	if result.Skill != "" {
+		opts.Skills = []string{result.Skill}
+	}
+
+	installResult, err := install.Install(source, destPath, opts)
 	if err != nil {
 		spinner.Fail("Failed to install")
 		logSummary.FailedSkills = []string{result.Name}
@@ -504,7 +541,12 @@ func installFromSearchResult(result search.SearchResult, cfg *config.Config) (er
 
 	spinner := ui.StartTreeSpinner("Cloning repository...", true)
 
-	installResult, err := install.Install(source, destPath, install.InstallOptions{})
+	opts := install.InstallOptions{}
+	if result.Skill != "" {
+		opts.Skills = []string{result.Skill}
+	}
+
+	installResult, err := install.Install(source, destPath, opts)
 	if err != nil {
 		spinner.Fail("Failed to install")
 		logSummary.FailedSkills = []string{result.Name}

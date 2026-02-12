@@ -8,6 +8,7 @@ import { wobbly } from '../design';
 export interface SavedHub {
   label: string;
   url: string;
+  builtIn?: boolean;
 }
 
 interface HubManagerModalProps {
@@ -142,7 +143,9 @@ export default function HubManagerModal({
                       {hub.url}
                     </span>
                   </div>
-                  {confirmDelete === hub.url ? (
+                  {hub.builtIn ? (
+                    <span className="text-xs text-muted-dark shrink-0 px-1.5">Built-in</span>
+                  ) : confirmDelete === hub.url ? (
                     <div className="flex items-center gap-1 shrink-0">
                       <HandButton
                         variant="danger"

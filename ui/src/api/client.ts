@@ -253,6 +253,7 @@ export interface SearchResult {
   name: string;
   description: string;
   source: string;
+  skill?: string;
   stars: number;
   owner: string;
   repo: string;

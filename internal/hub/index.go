@@ -28,6 +28,7 @@ type SkillEntry struct {
 	Name        string   `json:"name"`
 	Description string   `json:"description,omitempty"`
 	Source      string   `json:"source,omitempty"`
+	Skill       string   `json:"skill,omitempty"`
 	Tags        []string `json:"tags,omitempty"`
 
 	// Metadata fields — only emitted with --full.

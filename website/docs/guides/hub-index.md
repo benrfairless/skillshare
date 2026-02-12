@@ -160,6 +160,7 @@ The index follows Schema v1:
 | `name` | Yes | Skill display name |
 | `source` | Yes | Install source (GitHub shorthand, URL, or local path) |
 | `description` | Recommended | Short description for search matching |
+| `skill` | No | Specific skill name within a multi-skill repo (used with `install -s`) |
 | `tags` | No | Classification tags for filtering and grouping |
 
 ### Document-Level Fields
@@ -221,6 +222,16 @@ Tips for hand-written indexes:
 - `tags` is optional — useful for filtering on the website or in search
 - Skills with empty `name` are skipped
 - Results are sorted by name alphabetically
+
+## Community Hub
+
+The [skillshare-hub](https://github.com/runkids/skillshare-hub) is a community-maintained index of curated skills. You can search it directly:
+
+```bash
+skillshare search --hub https://raw.githubusercontent.com/runkids/skillshare-hub/main/skillshare-hub.json
+```
+
+Want to share your skills with the community? [Submit a PR](https://github.com/runkids/skillshare-hub) to add your skill to the catalog.
 
 ## Tips
 

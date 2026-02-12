@@ -20,6 +20,7 @@ type indexSkill struct {
 	Name        string   `json:"name"`
 	Description string   `json:"description"`
 	Source      string   `json:"source"`
+	Skill       string   `json:"skill"`
 	Tags        []string `json:"tags"`
 }
 
@@ -78,6 +79,7 @@ func searchIndex(query string, limit int, doc *indexDocument) ([]SearchResult, e
 			Name:        name,
 			Description: strings.TrimSpace(it.Description),
 			Source:      source,
+			Skill:       strings.TrimSpace(it.Skill),
 			Tags:        it.Tags,
 			Owner:       owner,
 			Repo:        repo,

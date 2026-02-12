@@ -49,6 +49,7 @@ All hub.json files (community, enterprise, private) share the same schema:
 | `name` | Yes | Unique skill name (lowercase, hyphens) |
 | `description` | Yes | One-line description of what the skill does |
 | `source` | Yes | Installable source (`owner/repo` or full URL) |
+| `skill` | No | Specific skill name within a multi-skill repo (used with `install -s`) |
 | `tags` | No | Classification tags for filtering/grouping |
 
 ### Tags Convention
@@ -63,7 +64,7 @@ All hub.json files (community, enterprise, private) share the same schema:
 ### Repo Structure
 
 ```
-skillshare-community/
+skillshare-hub/
 ├── skillshare-hub.json          ← hand-curated, contributors edit via PR
 ├── CONTRIBUTING.md
 └── .github/
@@ -116,10 +117,10 @@ jobs:
 
 ```bash
 # Search the community hub
-skillshare search --hub https://raw.githubusercontent.com/<org>/skillshare-community/main/skillshare-hub.json
+skillshare search --hub https://raw.githubusercontent.com/<org>/skillshare-hub/main/skillshare-hub.json
 
 # Browse all
-skillshare search --hub https://raw.githubusercontent.com/<org>/skillshare-community/main/skillshare-hub.json --json
+skillshare search --hub https://raw.githubusercontent.com/<org>/skillshare-hub/main/skillshare-hub.json --json
 ```
 
 ## Phase 2: Website Hub Page
@@ -173,13 +174,13 @@ All use the same `skillshare-hub.json` schema. Difference is how they are produc
 
 | Type | How produced | Example |
 |------|-------------|---------|
-| Community | Hand-curated via PR | `skillshare-community` repo |
+| Community | Hand-curated via PR | `skillshare-hub` repo |
 | Enterprise | Hand-curated or `skillshare hub index` | Internal company catalog |
 | Private | `skillshare hub index` auto-generated | Local skill directory |
 
 ## Launch Checklist
 
-- [ ] Create `skillshare-community` repo
+- [ ] Create `skillshare-hub` repo
 - [ ] Add CI workflow (validate-pr)
 - [ ] Add 5+ seed skills to hub.json
 - [ ] Write CONTRIBUTING.md with clear instructions

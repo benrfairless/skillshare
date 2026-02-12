@@ -16,16 +16,22 @@ const LS_MODE = 'search:mode';
 const LS_SELECTED = 'search:selectedHub';
 const LS_SAVED = 'search:savedHubs';
 
+const COMMUNITY_HUB: SavedHub = {
+  label: 'Skillshare Hub',
+  url: 'https://raw.githubusercontent.com/runkids/skillshare-hub/main/skillshare-hub.json',
+  builtIn: true,
+};
+
 function loadMode(): SearchMode {
   const v = localStorage.getItem(LS_MODE);
   return v === 'hub' ? 'hub' : 'github';
 }
 
 function loadSelectedHub(): string {
-  return localStorage.getItem(LS_SELECTED) ?? '';
+  return localStorage.getItem(LS_SELECTED) || COMMUNITY_HUB.url;
 }
 
-function loadSavedHubs(): SavedHub[] {
+function loadUserHubs(): SavedHub[] {
   try {
     const raw = localStorage.getItem(LS_SAVED);
     if (!raw) return [];
@@ -33,6 +39,10 @@ function loadSavedHubs(): SavedHub[] {
   } catch {
     return [];
   }
+}
+
+function mergeHubs(userHubs: SavedHub[]): SavedHub[] {
+  return [COMMUNITY_HUB, ...userHubs.filter((h) => normalizeURL(h.url) !== normalizeURL(COMMUNITY_HUB.url))];
 }
 
 function normalizeURL(url: string): string {
@@ -48,7 +58,7 @@ export default function SearchPage() {
 
   // Hub state
   const [selectedHub, setSelectedHub] = useState(loadSelectedHub);
-  const [savedHubs, setSavedHubs] = useState<SavedHub[]>(loadSavedHubs);
+  const [savedHubs, setSavedHubs] = useState<SavedHub[]>(() => mergeHubs(loadUserHubs()));
   const [showHubManager, setShowHubManager] = useState(false);
 
   // Install state
@@ -91,10 +101,34 @@ export default function SearchPage() {
     }
   };
 
-  const handleInstall = async (source: string) => {
+  const handleInstall = async (source: string, skill?: string) => {
     setInstalling(source);
     try {
       const disc = await api.discover(source);
+      // If hub entry specifies a skill, pre-filter to that skill
+      if (skill && disc.skills.length > 1) {
+        const matched = disc.skills.filter((s) => s.name === skill);
+        if (matched.length > 0) {
+          const res = await api.installBatch({ source, skills: matched });
+          let hasAuditBlock = false;
+          for (const item of res.results) {
+            if (item.error) {
+              if (item.error.includes('security audit failed')) {
+                hasAuditBlock = true;
+                toast(`${item.name}: blocked by security audit`, 'error');
+              } else {
+                toast(`${item.name}: ${item.error}`, 'error');
+              }
+            }
+            if (item.warnings?.length) {
+              item.warnings.forEach((w) => toast(`${item.name}: ${w}`, 'warning'));
+            }
+          }
+          toast(res.summary, hasAuditBlock ? 'warning' : 'success');
+          return;
+        }
+        // skill not found in repo — fall through to picker
+      }
       if (disc.skills.length > 1) {
         setDiscoveredSkills(disc.skills);
         setPendingSource(source);
@@ -164,15 +198,15 @@ export default function SearchPage() {
   };
 
   const handleHubsSave = (updated: SavedHub[]) => {
-    setSavedHubs(updated);
-    localStorage.setItem(LS_SAVED, JSON.stringify(updated));
-    // If selected hub was removed, select first available or clear
-    if (updated.length === 0) {
-      setSelectedHub('');
-      localStorage.setItem(LS_SELECTED, '');
-    } else if (!updated.some((h) => normalizeURL(h.url) === normalizeURL(selectedHub))) {
-      setSelectedHub(updated[0].url);
-      localStorage.setItem(LS_SELECTED, updated[0].url);
+    const merged = mergeHubs(updated);
+    setSavedHubs(merged);
+    // Only persist user-added hubs
+    const userOnly = updated.filter((h) => !h.builtIn);
+    localStorage.setItem(LS_SAVED, JSON.stringify(userOnly));
+    // If selected hub was removed, fall back to community hub
+    if (!merged.some((h) => normalizeURL(h.url) === normalizeURL(selectedHub))) {
+      setSelectedHub(COMMUNITY_HUB.url);
+      localStorage.setItem(LS_SELECTED, COMMUNITY_HUB.url);
     }
   };
 
@@ -331,7 +365,7 @@ export default function SearchPage() {
                   </p>
                 </div>
                 <HandButton
-                  onClick={() => handleInstall(r.source)}
+                  onClick={() => handleInstall(r.source, r.skill)}
                   disabled={installing === r.source}
                   variant="secondary"
                   size="sm"

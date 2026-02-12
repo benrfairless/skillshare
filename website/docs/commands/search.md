@@ -176,6 +176,19 @@ If you don't use `gh` CLI:
 
 This ensures high-quality, popular skills appear first.
 
+## Community Hub
+
+Browse and install community-curated skills from [skillshare-hub](https://github.com/runkids/skillshare-hub):
+
+```bash
+skillshare search --hub https://raw.githubusercontent.com/runkids/skillshare-hub/main/skillshare-hub.json
+
+# Search for specific skills
+skillshare search react --hub https://raw.githubusercontent.com/runkids/skillshare-hub/main/skillshare-hub.json
+```
+
+Want to share your skill with the community? Submit a PR to [runkids/skillshare-hub](https://github.com/runkids/skillshare-hub).
+
 ## Private Index Search
 
 Search from a private hub index instead of GitHub:

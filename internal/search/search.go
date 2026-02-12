@@ -20,6 +20,7 @@ type SearchResult struct {
 	Name        string  // Skill name (from SKILL.md frontmatter or directory name)
 	Description string  // From SKILL.md frontmatter
 	Source      string  // Installable source (owner/repo/path)
+	Skill       string  // Specific skill name within a multi-skill repo (install -s)
 	Stars       int     // Repository star count
 	Owner       string  // Repository owner
 	Repo        string  // Repository name

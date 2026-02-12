@@ -40,6 +40,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 		Name        string   `json:"name"`
 		Description string   `json:"description"`
 		Source      string   `json:"source"`
+		Skill       string   `json:"skill,omitempty"`
 		Stars       int      `json:"stars"`
 		Owner       string   `json:"owner"`
 		Repo        string   `json:"repo"`
@@ -52,6 +53,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 			Name:        r.Name,
 			Description: r.Description,
 			Source:      r.Source,
+			Skill:       r.Skill,
 			Stars:       r.Stars,
 			Owner:       r.Owner,
 			Repo:        r.Repo,
