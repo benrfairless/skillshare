@@ -4,7 +4,86 @@ sidebar_position: 8
 
 # hub
 
-Manage private skill hubs. Currently provides the `index` subcommand for building searchable skill catalogs.
+Manage skill hubs — saved hub sources for search.
+
+## hub add
+
+Save a hub source to config for reuse in [`search --hub`](./search.md).
+
+```bash
+skillshare hub add <url> [options]
+```
+
+| Flag | Description |
+|------|-------------|
+| `--label`, `-l` | Custom label (default: derived from URL hostname) |
+| `--project`, `-p` | Save to project config |
+| `--global`, `-g` | Save to global config |
+
+The first hub added is automatically set as the default. Labels are case-insensitive.
+
+```bash
+skillshare hub add https://internal.corp/hub.json --label team
+skillshare hub add ./local-hub.json                # label derived: "local-hub"
+```
+
+## hub list
+
+List saved hubs. `*` marks the default hub.
+
+```bash
+skillshare hub list [options]
+```
+
+| Flag | Description |
+|------|-------------|
+| `--project`, `-p` | Show project hubs |
+| `--global`, `-g` | Show global hubs |
+
+```
+$ skillshare hub list
+  * team   https://internal.corp/hub.json
+    local  ./local-hub.json
+```
+
+Alias: `hub ls`
+
+## hub remove
+
+Remove a saved hub by label.
+
+```bash
+skillshare hub remove <label> [options]
+```
+
+| Flag | Description |
+|------|-------------|
+| `--project`, `-p` | Remove from project config |
+| `--global`, `-g` | Remove from global config |
+
+If the removed hub was the default, the default is cleared.
+
+Alias: `hub rm`
+
+## hub default
+
+Show or set the default hub used by `search --hub` (bare flag).
+
+```bash
+skillshare hub default [label] [options]
+```
+
+| Flag | Description |
+|------|-------------|
+| `--reset` | Clear the default (revert to community hub) |
+| `--project`, `-p` | Use project config |
+| `--global`, `-g` | Use global config |
+
+```bash
+skillshare hub default              # Show current default
+skillshare hub default team         # Set default to "team"
+skillshare hub default --reset      # Clear default → community hub
+```
 
 ## hub index
 
@@ -100,3 +179,19 @@ A typical private hub workflow:
 ```
 
 For more details, see the [Hub Index Guide](../guides/hub-index.md).
+
+## Config Format
+
+Saved hubs are stored under the `hub:` key in `config.yaml`:
+
+```yaml
+hub:
+  default: team
+  hubs:
+    - label: team
+      url: https://internal.corp/hub.json
+    - label: local
+      url: ./local-hub.json
+```
+
+The community hub ([skillshare-hub](https://github.com/runkids/skillshare-hub)) is implicit and doesn't need to be saved. When no default is set, `search --hub` falls back to the community hub automatically.

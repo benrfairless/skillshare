@@ -123,6 +123,10 @@ func (s *Server) registerRoutes() {
 
 	// Hub
 	s.mux.HandleFunc("GET /api/hub/index", s.handleHubIndex)
+	s.mux.HandleFunc("GET /api/hub/saved", s.handleGetHubSaved)
+	s.mux.HandleFunc("PUT /api/hub/saved", s.handlePutHubSaved)
+	s.mux.HandleFunc("POST /api/hub/saved", s.handlePostHubSaved)
+	s.mux.HandleFunc("DELETE /api/hub/saved/{label}", s.handleDeleteHubSaved)
 
 	// Search & Install
 	s.mux.HandleFunc("GET /api/search", s.handleSearch)

@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.12.1] - 2026-02-13
+
+### Added
+- **Hub persistence** — saved hubs stored in `config.yaml` (both global and project), shared between CLI and Web UI
+  - `hub add <url>` — save a hub source (`--label` to name it; first add auto-sets as default)
+  - `hub list` — list saved hubs (`*` marks default)
+  - `hub remove <label>` — remove a saved hub
+  - `hub default [label]` — show or set the default hub (`--reset` to clear)
+  - All subcommands support `--project` / `--global` mode
+- **Hub label resolution in search** — `search --hub <label>` resolves saved hub labels instead of requiring full URLs
+  - `search --hub team` looks up the "team" hub from config
+  - `search --hub` (bare) uses the config default, falling back to community hub
+- **Hub saved API** — REST endpoints for hub CRUD (`GET/PUT/POST/DELETE /api/hub/saved`)
+- **Web UI hub persistence** — hub list and default hub now persisted on server instead of browser localStorage
+- **Search fuzzy filter** — hub search results filtered by fuzzy match on name + substring match on description and tags
+- **Tag badges in search** — `#tag` badges displayed in both CLI interactive selector and Web UI hub search results
+- **Web UI tag filter** — inline filter input on hub search cards matching name, description, and tags
+
+### Changed
+- `search --hub` (bare flag) now defaults to community skillshare-hub instead of requiring a URL
+- Web UI SearchPage migrated from localStorage to server API for hub state
+
+### Fixed
+- `audit <path>` no longer fails with "config not found" in CI environments without a skillshare config
+
 ## [0.12.0] - 2026-02-13
 
 ### Added

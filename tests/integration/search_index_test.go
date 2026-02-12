@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"skillshare/internal/testutil"
@@ -109,4 +110,65 @@ func TestSearch_IndexURL_SpinnerText(t *testing.T) {
 	result.AssertSuccess(t)
 	// JSON mode shows progress on stderr
 	result.AssertAnyOutputContains(t, "Browsing popular skills")
+}
+
+func TestSearch_HubLabel_ResolvesFromConfig(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	indexPath := writeIndexFile(t, sb.Home, []map[string]string{
+		{"name": "my-skill", "description": "A skill", "source": "owner/repo/my-skill"},
+	})
+
+	// Write config with a saved hub
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\nhub:\n  hubs:\n    - label: test\n      url: " + indexPath + "\n")
+
+	result := sb.RunCLI("search", "my-skill", "--hub", "test", "--list")
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "my-skill")
+}
+
+func TestSearch_HubLabel_NotFound(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+	result := sb.RunCLI("search", "x", "--hub", "nonexistent", "--list")
+	result.AssertFailure(t)
+	result.AssertAnyOutputContains(t, "not found")
+}
+
+func TestSearch_HubBare_UsesDefault(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	indexPath := writeIndexFile(t, sb.Home, []map[string]string{
+		{"name": "default-skill", "source": "a/b"},
+	})
+
+	// Config with default hub set
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\nhub:\n  default: myhub\n  hubs:\n    - label: myhub\n      url: " + indexPath + "\n")
+
+	result := sb.RunCLI("search", "--hub", "--json")
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "default-skill")
+}
+
+func TestSearch_HubBare_FallbackToCommunity(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	// No default set — bare --hub should use community hub (which will fail in offline test,
+	// but we can verify the URL is attempted, not that it returned a label error)
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+	// This will try to fetch the community hub URL which will fail in offline mode,
+	// but it should NOT produce "not found" label error — it should try the URL
+	result := sb.RunCLI("search", "--hub", "--json")
+	// The search itself may fail (network) but shouldn't error with "not found"
+	combined := result.Stdout + result.Stderr
+	if strings.Contains(combined, "not found; run") {
+		t.Errorf("bare --hub with no default should fallback to community hub, not label error")
+	}
 }

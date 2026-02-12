@@ -180,7 +180,7 @@ func printUsage() {
 	// Utilities
 	fmt.Println("UTILITIES")
 	cmd("audit", "[name]", "Scan skills for security threats")
-	cmd("hub", "index", "Build index.json for private skill search")
+	cmd("hub", "<subcommand>", "Manage hubs (add, list, remove, default, index)")
 	cmd("log", "", "View operation log")
 	cmd("ui", "", "Launch web dashboard")
 	cmd("doctor", "", "Check environment and diagnose issues")

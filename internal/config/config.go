@@ -21,6 +21,19 @@ type AuditConfig struct {
 	BlockThreshold string `yaml:"block_threshold,omitempty"` // CRITICAL/HIGH/MEDIUM/LOW/INFO
 }
 
+// HubEntry represents a single saved hub source.
+type HubEntry struct {
+	Label   string `yaml:"label"`
+	URL     string `yaml:"url"`
+	BuiltIn bool   `yaml:"builtin,omitempty"`
+}
+
+// HubConfig holds hub persistence settings.
+type HubConfig struct {
+	Default string     `yaml:"default,omitempty"`
+	Hubs    []HubEntry `yaml:"hubs,omitempty"`
+}
+
 // Config holds the application configuration
 type Config struct {
 	Source  string                  `yaml:"source"`
@@ -28,6 +41,7 @@ type Config struct {
 	Targets map[string]TargetConfig `yaml:"targets"`
 	Ignore  []string                `yaml:"ignore,omitempty"`
 	Audit   AuditConfig             `yaml:"audit,omitempty"`
+	Hub     HubConfig               `yaml:"hub,omitempty"`
 }
 
 const defaultAuditBlockThreshold = "CRITICAL"

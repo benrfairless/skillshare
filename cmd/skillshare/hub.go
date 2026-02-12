@@ -17,14 +17,82 @@ func cmdHub(args []string) error {
 		return nil
 	}
 
-	switch args[0] {
+	subcmd := args[0]
+	subargs := args[1:]
+
+	// For subcommands that support --project/--global, parse mode
+	switch subcmd {
 	case "index":
-		return cmdHubIndex(args[1:])
+		return cmdHubIndex(subargs)
+	case "add":
+		mode, rest, err := parseModeArgs(subargs)
+		if err != nil {
+			return err
+		}
+		cwd, err := os.Getwd()
+		if err != nil {
+			return fmt.Errorf("cannot determine working directory: %w", err)
+		}
+		if mode == modeAuto && projectConfigExists(cwd) {
+			mode = modeProject
+		} else if mode == modeAuto {
+			mode = modeGlobal
+		}
+		applyModeLabel(mode)
+		return cmdHubAdd(rest, mode, cwd)
+	case "list", "ls":
+		mode, _, err := parseModeArgs(subargs)
+		if err != nil {
+			return err
+		}
+		cwd, err := os.Getwd()
+		if err != nil {
+			return fmt.Errorf("cannot determine working directory: %w", err)
+		}
+		if mode == modeAuto && projectConfigExists(cwd) {
+			mode = modeProject
+		} else if mode == modeAuto {
+			mode = modeGlobal
+		}
+		applyModeLabel(mode)
+		return cmdHubList(mode, cwd)
+	case "remove", "rm":
+		mode, rest, err := parseModeArgs(subargs)
+		if err != nil {
+			return err
+		}
+		cwd, err := os.Getwd()
+		if err != nil {
+			return fmt.Errorf("cannot determine working directory: %w", err)
+		}
+		if mode == modeAuto && projectConfigExists(cwd) {
+			mode = modeProject
+		} else if mode == modeAuto {
+			mode = modeGlobal
+		}
+		applyModeLabel(mode)
+		return cmdHubRemove(rest, mode, cwd)
+	case "default":
+		mode, rest, err := parseModeArgs(subargs)
+		if err != nil {
+			return err
+		}
+		cwd, err := os.Getwd()
+		if err != nil {
+			return fmt.Errorf("cannot determine working directory: %w", err)
+		}
+		if mode == modeAuto && projectConfigExists(cwd) {
+			mode = modeProject
+		} else if mode == modeAuto {
+			mode = modeGlobal
+		}
+		applyModeLabel(mode)
+		return cmdHubDefault(rest, mode, cwd)
 	case "help", "-h", "--help":
 		printHubHelp()
 		return nil
 	default:
-		return fmt.Errorf("unknown hub subcommand: %s\nRun 'skillshare hub help' for usage", args[0])
+		return fmt.Errorf("unknown hub subcommand: %s\nRun 'skillshare hub help' for usage", subcmd)
 	}
 }
 
@@ -161,11 +229,15 @@ func resolveSourcePath(mode runMode, cwd string) (string, error) {
 func printHubHelp() {
 	fmt.Println(`Usage: skillshare hub <subcommand> [options]
 
-Manage private skill hubs.
+Manage skill hubs — saved hub sources for search.
 
 Subcommands:
-  index     Build an index.json from source skills
-  help      Show this help
+  add <url>       Save a hub source (--label to set name)
+  list            List saved hubs (* marks default)
+  remove <label>  Remove a saved hub
+  default [label] Show or set the default hub (--reset to clear)
+  index           Build an index.json from source skills
+  help            Show this help
 
 Run 'skillshare hub <subcommand> --help' for details.`)
 }

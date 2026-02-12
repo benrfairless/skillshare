@@ -189,6 +189,29 @@ When `--hub` is used without a URL, it defaults to the community [skillshare-hub
 
 Want to share your skill with the community? [Open a PR](https://github.com/runkids/skillshare-hub) to add your skill — CI runs `skillshare audit` on every submission.
 
+## Saved Hub Labels
+
+Save hubs with [`hub add`](./hub.md#hub-add) and search by label instead of typing full URLs:
+
+```bash
+# Save a hub once
+skillshare hub add https://internal.corp/hub.json --label team
+
+# Search by label
+skillshare search react --hub team
+
+# Set as default for bare --hub
+skillshare hub default team
+skillshare search --hub              # Uses "team" hub
+```
+
+Resolution order for `--hub <value>`:
+1. URL or path (starts with `http`, `/`, `.`, `~`, `file://`) → used directly
+2. Otherwise → label lookup from saved hubs
+3. Bare `--hub` (no value) → config default → community hub fallback
+
+See [`hub`](./hub.md) for managing saved hubs.
+
 ## Private Index Search
 
 Search from a private hub index instead of GitHub:
@@ -215,7 +238,7 @@ skillshare search --hub ./skillshare-hub.json  # Search it
 ```
 
 :::tip Default hub
-`skillshare search --hub` (without a URL) defaults to the community [skillshare-hub](https://github.com/runkids/skillshare-hub) index, so you don't need to type the full URL every time.
+`skillshare search --hub` (without a URL) defaults to the community [skillshare-hub](https://github.com/runkids/skillshare-hub) index, so you don't need to type the full URL every time. Or set your own default with `skillshare hub default <label>`.
 :::
 
 For more details, see the [Hub Index Guide](../guides/hub-index.md).

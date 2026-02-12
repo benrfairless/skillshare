@@ -69,6 +69,7 @@ type ProjectConfig struct {
 	Targets []ProjectTargetEntry `yaml:"targets"`
 	Skills  []ProjectSkill       `yaml:"skills,omitempty"`
 	Audit   AuditConfig          `yaml:"audit,omitempty"`
+	Hub     HubConfig            `yaml:"hub,omitempty"`
 }
 
 // ProjectConfigPath returns the project config path for the given root.

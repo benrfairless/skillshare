@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Search, Star, Download, Globe, Database, Settings } from 'lucide-react';
 import Card from '../components/Card';
 import Badge from '../components/Badge';
@@ -12,34 +12,11 @@ import { api, type SearchResult, type DiscoveredSkill } from '../api/client';
 
 type SearchMode = 'github' | 'hub';
 
-const LS_MODE = 'search:mode';
-const LS_SELECTED = 'search:selectedHub';
-const LS_SAVED = 'search:savedHubs';
-
 const COMMUNITY_HUB: SavedHub = {
   label: 'Skillshare Hub',
   url: 'https://raw.githubusercontent.com/runkids/skillshare-hub/main/skillshare-hub.json',
   builtIn: true,
 };
-
-function loadMode(): SearchMode {
-  const v = localStorage.getItem(LS_MODE);
-  return v === 'hub' ? 'hub' : 'github';
-}
-
-function loadSelectedHub(): string {
-  return localStorage.getItem(LS_SELECTED) || COMMUNITY_HUB.url;
-}
-
-function loadUserHubs(): SavedHub[] {
-  try {
-    const raw = localStorage.getItem(LS_SAVED);
-    if (!raw) return [];
-    return JSON.parse(raw) as SavedHub[];
-  } catch {
-    return [];
-  }
-}
 
 function mergeHubs(userHubs: SavedHub[]): SavedHub[] {
   return [COMMUNITY_HUB, ...userHubs.filter((h) => normalizeURL(h.url) !== normalizeURL(COMMUNITY_HUB.url))];
@@ -50,7 +27,7 @@ function normalizeURL(url: string): string {
 }
 
 export default function SearchPage() {
-  const [mode, setMode] = useState<SearchMode>(loadMode);
+  const [mode, setMode] = useState<SearchMode>('github');
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[] | null>(null);
   const [searching, setSearching] = useState(false);
@@ -58,9 +35,10 @@ export default function SearchPage() {
   const { toast } = useToast();
 
   // Hub state
-  const [selectedHub, setSelectedHub] = useState(loadSelectedHub);
-  const [savedHubs, setSavedHubs] = useState<SavedHub[]>(() => mergeHubs(loadUserHubs()));
+  const [selectedHub, setSelectedHub] = useState(COMMUNITY_HUB.url);
+  const [savedHubs, setSavedHubs] = useState<SavedHub[]>([COMMUNITY_HUB]);
   const [showHubManager, setShowHubManager] = useState(false);
+  const [hubLoaded, setHubLoaded] = useState(false);
 
   // Install state
   const [installing, setInstalling] = useState<string | null>(null);
@@ -71,10 +49,38 @@ export default function SearchPage() {
   const [pendingSource, setPendingSource] = useState('');
   const [batchInstalling, setBatchInstalling] = useState(false);
 
+  // Fetch hub config from server on mount
+  useEffect(() => {
+    fetchHubConfig();
+  }, []);
+
+  const fetchHubConfig = async () => {
+    try {
+      const res = await api.getHubConfig();
+      const merged = mergeHubs(
+        res.hubs.map((h) => ({ label: h.label, url: h.url, builtIn: h.builtIn })),
+      );
+      setSavedHubs(merged);
+
+      // Resolve default hub to a URL for the select
+      if (res.default) {
+        const match = merged.find(
+          (h) => h.label.toLowerCase() === res.default.toLowerCase(),
+        );
+        if (match) {
+          setSelectedHub(match.url);
+        }
+      }
+    } catch {
+      // Graceful fallback: use community hub only
+    } finally {
+      setHubLoaded(true);
+    }
+  };
+
   const switchMode = useCallback((newMode: SearchMode) => {
     setMode(newMode);
     setResults(null);
-    localStorage.setItem(LS_MODE, newMode);
   }, []);
 
   const handleSearch = async (searchQuery?: string) => {
@@ -199,23 +205,63 @@ export default function SearchPage() {
     }
   };
 
-  const handleHubsSave = (updated: SavedHub[]) => {
-    const merged = mergeHubs(updated);
-    setSavedHubs(merged);
-    // Only persist user-added hubs
+  const handleHubsSave = async (updated: SavedHub[]) => {
     const userOnly = updated.filter((h) => !h.builtIn);
-    localStorage.setItem(LS_SAVED, JSON.stringify(userOnly));
-    // If selected hub was removed, fall back to community hub
-    if (!merged.some((h) => normalizeURL(h.url) === normalizeURL(selectedHub))) {
-      setSelectedHub(COMMUNITY_HUB.url);
-      localStorage.setItem(LS_SELECTED, COMMUNITY_HUB.url);
+    try {
+      // Find the label that matches the currently selected hub URL
+      const merged = mergeHubs(userOnly);
+      const currentMatch = merged.find((h) => normalizeURL(h.url) === normalizeURL(selectedHub));
+      const defaultLabel = currentMatch && !currentMatch.builtIn ? currentMatch.label : '';
+
+      await api.putHubConfig({
+        hubs: userOnly.map((h) => ({ label: h.label, url: h.url })),
+        default: defaultLabel,
+      });
+      setSavedHubs(merged);
+
+      // If selected hub was removed, fall back to community hub
+      if (!merged.some((h) => normalizeURL(h.url) === normalizeURL(selectedHub))) {
+        setSelectedHub(COMMUNITY_HUB.url);
+      }
+    } catch (e: unknown) {
+      toast((e as Error).message, 'error');
     }
   };
 
-  const handleSelectHub = (url: string) => {
+  const handleSelectHub = async (url: string) => {
     setSelectedHub(url);
-    localStorage.setItem(LS_SELECTED, url);
     setResults(null);
+
+    // Persist selected hub as default on server
+    const match = savedHubs.find((h) => normalizeURL(h.url) === normalizeURL(url));
+    if (match && !match.builtIn) {
+      try {
+        const userOnly = savedHubs.filter((h) => !h.builtIn);
+        await api.putHubConfig({
+          hubs: userOnly.map((h) => ({ label: h.label, url: h.url })),
+          default: match.label,
+        });
+      } catch {
+        // Non-critical — selection still works locally
+      }
+    } else {
+      // Selected community hub — clear default
+      try {
+        const userOnly = savedHubs.filter((h) => !h.builtIn);
+        await api.putHubConfig({
+          hubs: userOnly.map((h) => ({ label: h.label, url: h.url })),
+          default: '',
+        });
+      } catch {
+        // Non-critical
+      }
+    }
+  };
+
+  const handleHubManagerClose = () => {
+    setShowHubManager(false);
+    // Re-fetch to ensure we're in sync with server
+    fetchHubConfig();
   };
 
   return (
@@ -254,7 +300,7 @@ export default function SearchPage() {
       </div>
 
       {/* Hub selector (only in hub mode) */}
-      {mode === 'hub' && (
+      {mode === 'hub' && hubLoaded && (
         <Card className="mb-4 !overflow-visible">
           {savedHubs.length > 0 ? (
             <div className="flex items-center gap-2">
@@ -464,7 +510,7 @@ export default function SearchPage() {
         open={showHubManager}
         hubs={savedHubs}
         onSave={handleHubsSave}
-        onClose={() => setShowHubManager(false)}
+        onClose={handleHubManagerClose}
       />
 
       {/* Skill Picker Modal for multi-skill repos */}

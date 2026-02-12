@@ -45,7 +45,8 @@ func cmdSearch(args []string) error {
 	var query string
 	var jsonOutput bool
 	var listOnly bool
-	var indexURL string
+	var hubInput string // raw --hub value
+	var hubBare bool    // --hub with no value
 	var limit int = 20
 
 	// Parse remaining arguments
@@ -60,12 +61,12 @@ func cmdSearch(args []string) error {
 			listOnly = true
 		case key == "--hub":
 			if hasEq {
-				indexURL = strings.TrimSpace(val)
+				hubInput = strings.TrimSpace(val)
 			} else if i+1 < len(rest) && !strings.HasPrefix(rest[i+1], "-") {
 				i++
-				indexURL = strings.TrimSpace(rest[i])
+				hubInput = strings.TrimSpace(rest[i])
 			} else {
-				indexURL = defaultHubURL
+				hubBare = true
 			}
 		case key == "--limit" || key == "-n":
 			if hasEq {
@@ -98,6 +99,16 @@ func cmdSearch(args []string) error {
 			}
 		}
 		i++
+	}
+
+	// Resolve --hub value to a URL
+	var indexURL string
+	if hubInput != "" || hubBare {
+		resolved, err := resolveHubURL(hubInput, hubBare, mode, cwd, defaultHubURL)
+		if err != nil {
+			return err
+		}
+		indexURL = resolved
 	}
 
 	// JSON mode: silent search, output JSON
@@ -654,5 +665,72 @@ Examples:
   skillshare search --hub                      Browse skillshare-hub
   skillshare search react --hub                Search "react" in skillshare-hub
   skillshare search --hub ./skillshare-hub.json          Custom local index
-  skillshare search react --hub https://internal.corp/skills/index.json`)
+  skillshare search react --hub https://internal.corp/skills/index.json
+
+  # Hub search with saved hubs
+  skillshare hub add https://internal.corp/hub.json --label team
+  skillshare search --hub team                       Search using saved hub label
+  skillshare hub default team
+  skillshare search --hub                            Uses default hub`)
+}
+
+// resolveHubURL resolves the --hub flag value to a URL.
+// - bare=true, input="" → config default → fallback to defaultHubURL
+// - input looks like URL/path → passthrough
+// - otherwise → label lookup in config
+func resolveHubURL(input string, bare bool, mode runMode, cwd, defaultHubURL string) (string, error) {
+	if bare && input == "" {
+		// --hub with no value: try config default, then community hub
+		hubCfg := loadHubConfig(mode, cwd)
+		url, err := hubCfg.DefaultHub()
+		if err != nil {
+			return "", err
+		}
+		if url != "" {
+			return url, nil
+		}
+		return defaultHubURL, nil
+	}
+
+	// Check if input looks like a URL or path
+	if looksLikeURLOrPath(input) {
+		return input, nil
+	}
+
+	// Try label lookup
+	hubCfg := loadHubConfig(mode, cwd)
+	url, ok := hubCfg.ResolveHub(input)
+	if !ok {
+		return "", fmt.Errorf("hub %q not found; run 'skillshare hub list' to see saved hubs", input)
+	}
+	return url, nil
+}
+
+// looksLikeURLOrPath returns true if the value appears to be a URL or file path
+// rather than a hub label.
+func looksLikeURLOrPath(v string) bool {
+	return strings.HasPrefix(v, "http://") ||
+		strings.HasPrefix(v, "https://") ||
+		strings.HasPrefix(v, "file://") ||
+		strings.HasPrefix(v, "/") ||
+		strings.HasPrefix(v, "./") ||
+		strings.HasPrefix(v, "../") ||
+		strings.HasPrefix(v, "~")
+}
+
+// loadHubConfig loads the HubConfig from the appropriate config, returning
+// an empty HubConfig on error (graceful fallback).
+func loadHubConfig(mode runMode, cwd string) config.HubConfig {
+	if mode == modeProject {
+		pcfg, err := config.LoadProject(cwd)
+		if err != nil {
+			return config.HubConfig{}
+		}
+		return pcfg.Hub
+	}
+	cfg, err := config.Load()
+	if err != nil {
+		return config.HubConfig{}
+	}
+	return cfg.Hub
 }

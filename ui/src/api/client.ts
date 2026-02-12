@@ -53,6 +53,21 @@ export const api = {
 
   // Hub
   hubIndex: () => apiFetch<HubIndex>('/hub/index'),
+  getHubConfig: () => apiFetch<HubConfigResponse>('/hub/saved'),
+  putHubConfig: (data: { hubs: HubSavedEntry[]; default: string }) =>
+    apiFetch<{ success: boolean }>('/hub/saved', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  addHub: (hub: { label: string; url: string }) =>
+    apiFetch<{ success: boolean }>('/hub/saved', {
+      method: 'POST',
+      body: JSON.stringify(hub),
+    }),
+  removeHub: (label: string) =>
+    apiFetch<{ success: boolean }>(`/hub/saved/${encodeURIComponent(label)}`, {
+      method: 'DELETE',
+    }),
 
   // Search & Install
   search: (q: string, limit = 20) =>
@@ -477,4 +492,16 @@ export interface AuditRulesResponse {
   exists: boolean;
   raw: string;
   path: string;
+}
+
+// Hub saved config types
+export interface HubSavedEntry {
+  label: string;
+  url: string;
+  builtIn?: boolean;
+}
+
+export interface HubConfigResponse {
+  hubs: HubSavedEntry[];
+  default: string;
 }
