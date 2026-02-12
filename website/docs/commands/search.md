@@ -64,7 +64,7 @@ After installing, you can search again or press `Enter` to quit.
 |------|-------------|
 | `--project`, `-p` | Install to project-level config (`.skillshare/`) |
 | `--global`, `-g` | Install to global config (`~/.config/skillshare`) |
-| `--hub URL` | Search from a private hub index (local path or HTTP URL) |
+| `--hub [URL]` | Search from a hub index (default: [skillshare-hub](https://github.com/runkids/skillshare-hub); or custom URL/path) |
 | `--list`, `-l` | List results only, no install prompt |
 | `--json` | Output as JSON (for scripting) |
 | `--limit N`, `-n N` | Maximum results (default: 20, max: 100) |
@@ -181,11 +181,11 @@ This ensures high-quality, popular skills appear first.
 Browse and install community-curated skills from [skillshare-hub](https://github.com/runkids/skillshare-hub):
 
 ```bash
-skillshare search --hub https://raw.githubusercontent.com/runkids/skillshare-hub/main/skillshare-hub.json
-
-# Search for specific skills
-skillshare search react --hub https://raw.githubusercontent.com/runkids/skillshare-hub/main/skillshare-hub.json
+skillshare search --hub                # Browse all skills in skillshare-hub
+skillshare search react --hub          # Search "react" in skillshare-hub
 ```
+
+When `--hub` is used without a URL, it defaults to the community [skillshare-hub](https://github.com/runkids/skillshare-hub) index.
 
 Want to share your skill with the community? [Open a PR](https://github.com/runkids/skillshare-hub) to add your skill — CI runs `skillshare audit` on every submission.
 
@@ -210,9 +210,13 @@ skillshare search react --hub=./skillshare-hub.json
 Build an index with [`hub index`](./hub.md):
 
 ```bash
-skillshare hub index                    # Generate skillshare-hub.json
+skillshare hub index                           # Generate skillshare-hub.json
 skillshare search --hub ./skillshare-hub.json  # Search it
 ```
+
+:::tip Default hub
+`skillshare search --hub` (without a URL) defaults to the community [skillshare-hub](https://github.com/runkids/skillshare-hub) index, so you don't need to type the full URL every time.
+:::
 
 For more details, see the [Hub Index Guide](../guides/hub-index.md).
 

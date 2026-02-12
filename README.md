@@ -196,10 +196,10 @@ skillshare sync            # Sync skills to all targets
 | `skillshare audit [name]` | Scan skills for security threats |
 | `skillshare log` | View operations and audit logs for debugging and compliance |
 | `skillshare search <query>` | Search installable skills on GitHub |
-| `skillshare search --hub <url>` | Search a private or team skill index |
+| `skillshare search --hub [url]` | Search a hub index (default: skillshare-hub) |
 | `skillshare hub index` | Generate a hub index from installed skills |
 
-`skillshare search` requires GitHub auth (`gh auth login`) or `GITHUB_TOKEN`. The `--hub` flag searches a local or remote JSON index instead.
+`skillshare search` requires GitHub auth (`gh auth login`) or `GITHUB_TOKEN`. The `--hub` flag searches a JSON index instead — without a URL it defaults to the community [skillshare-hub](https://github.com/runkids/skillshare-hub).
 
 ### Target Management
 
@@ -255,9 +255,11 @@ skillshare sync
 Build a searchable skill catalog for your team or community — no GitHub API required.
 
 ```bash
-skillshare hub index                    # Generate index from installed skills
-skillshare search --hub ./skillshare-hub.json react   # Search local index
-skillshare search --hub https://example.com/hub.json  # Search remote index
+skillshare hub index                                   # Generate index from installed skills
+skillshare search --hub                                # Browse community skillshare-hub
+skillshare search react --hub                          # Search "react" in skillshare-hub
+skillshare search --hub ./skillshare-hub.json react    # Search custom local index
+skillshare search --hub https://example.com/hub.json   # Search custom remote index
 ```
 
 The generated `skillshare-hub.json` follows a versioned schema (`schemaVersion: 1`) with support for tags and multi-skill repos. Host it on any static server, internal CDN, or commit it alongside your skills repo.

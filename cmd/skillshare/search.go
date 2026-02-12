@@ -39,6 +39,8 @@ func cmdSearch(args []string) error {
 
 	applyModeLabel(mode)
 
+	const defaultHubURL = "https://raw.githubusercontent.com/runkids/skillshare-hub/main/skillshare-hub.json"
+
 	var query string
 	var jsonOutput bool
 	var listOnly bool
@@ -58,11 +60,11 @@ func cmdSearch(args []string) error {
 		case key == "--hub":
 			if hasEq {
 				indexURL = strings.TrimSpace(val)
-			} else if i+1 >= len(rest) {
-				return fmt.Errorf("--hub requires a value")
-			} else {
+			} else if i+1 < len(rest) && !strings.HasPrefix(rest[i+1], "-") {
 				i++
 				indexURL = strings.TrimSpace(rest[i])
+			} else {
+				indexURL = defaultHubURL
 			}
 		case key == "--limit" || key == "-n":
 			if hasEq {
@@ -585,7 +587,7 @@ When no query is provided, browses popular skills.
 Options:
   --project, -p      Install to project-level config (.skillshare/)
   --global, -g       Install to global config (~/.config/skillshare)
-  --hub URL          Search from a private hub index (local path or HTTP URL)
+  --hub [URL]        Search from a hub index (default: skillshare-hub; or custom URL/path)
   --json             Output results as JSON
   --list, -l         List results only (no install prompt)
   --limit N, -n      Maximum results (default: 20, max: 100)
@@ -600,7 +602,9 @@ Examples:
   skillshare search react --list
   skillshare search pdf -p
 
-  # Private hub index search
-  skillshare search --hub ./skillshare-hub.json
-  skillshare search react --hub https://internal.corp/skills/skillshare-hub.json`)
+  # Hub search (default: skillshare-hub)
+  skillshare search --hub                      Browse skillshare-hub
+  skillshare search react --hub                Search "react" in skillshare-hub
+  skillshare search --hub ./skillshare-hub.json          Custom local index
+  skillshare search react --hub https://internal.corp/skills/index.json`)
 }

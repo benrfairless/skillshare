@@ -96,7 +96,7 @@ A typical private hub workflow:
 1. Install skills           → skillshare install ...
 2. Build index              → skillshare hub index
 3. Share the index file     → Copy/host skillshare-hub.json
-4. Teammates search         → skillshare search --hub <path-or-url>
+4. Teammates search         → skillshare search --hub [path-or-url]
 ```
 
 For more details, see the [Hub Index Guide](../guides/hub-index.md).

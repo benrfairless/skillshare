@@ -242,7 +242,8 @@ Tips for hand-written indexes:
 The [skillshare-hub](https://github.com/runkids/skillshare-hub) is a community-maintained index of curated skills. You can search it directly:
 
 ```bash
-skillshare search --hub https://raw.githubusercontent.com/runkids/skillshare-hub/main/skillshare-hub.json
+skillshare search --hub              # Uses skillshare-hub by default
+skillshare search react --hub        # Search "react" in skillshare-hub
 ```
 
 Want to share your skills with the community? [Open a PR](https://github.com/runkids/skillshare-hub) to add your skill to the catalog. CI automatically runs `skillshare audit` on every submission to check for security issues before merging.
