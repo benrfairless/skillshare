@@ -40,7 +40,8 @@ skillshare hub index [options]
     {
       "name": "my-skill",
       "description": "A useful skill",
-      "source": "owner/repo/.claude/skills/my-skill"
+      "source": "owner/repo/.claude/skills/my-skill",
+      "tags": ["workflow"]
     }
   ]
 }
@@ -53,6 +54,7 @@ skillshare hub index [options]
   "name": "my-skill",
   "description": "A useful skill",
   "source": "github.com/owner/repo/.claude/skills/my-skill",
+  "tags": ["workflow"],
   "flatName": "my-skill",
   "type": "github-subdir",
   "repoUrl": "https://github.com/owner/repo.git",

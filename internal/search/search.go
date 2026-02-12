@@ -23,8 +23,9 @@ type SearchResult struct {
 	Stars       int     // Repository star count
 	Owner       string  // Repository owner
 	Repo        string  // Repository name
-	Path        string  // Path within repository
-	Score       float64 `json:"-"` // Internal relevance score, hidden from JSON output
+	Path        string   // Path within repository
+	Tags        []string // Classification tags from hub index
+	Score       float64  `json:"-"` // Internal relevance score, hidden from JSON output
 }
 
 // RateLimitError indicates GitHub API rate limit was exceeded

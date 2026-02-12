@@ -1,15 +1,18 @@
 package server
 
 import (
+	"encoding/json"
 	"net/http"
+	"path/filepath"
 	"strconv"
 
+	"skillshare/internal/hub"
 	"skillshare/internal/search"
 )
 
 func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query().Get("q")
-	indexURL := r.URL.Query().Get("hub")
+	hubParam := r.URL.Query().Get("hub")
 
 	limit := 20
 	if l := r.URL.Query().Get("limit"); l != "" {
@@ -20,9 +23,12 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 
 	var results []search.SearchResult
 	var err error
-	if indexURL != "" {
-		results, err = search.SearchFromIndexURL(query, limit, indexURL)
-	} else {
+	switch {
+	case hubParam == "@builtin":
+		results, err = s.searchBuiltinIndex(query, limit)
+	case hubParam != "":
+		results, err = search.SearchFromIndexURL(query, limit, hubParam)
+	default:
 		results, err = search.Search(query, limit)
 	}
 	if err != nil {
@@ -31,12 +37,13 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type resultItem struct {
-		Name        string `json:"name"`
-		Description string `json:"description"`
-		Source      string `json:"source"`
-		Stars       int    `json:"stars"`
-		Owner       string `json:"owner"`
-		Repo        string `json:"repo"`
+		Name        string   `json:"name"`
+		Description string   `json:"description"`
+		Source      string   `json:"source"`
+		Stars       int      `json:"stars"`
+		Owner       string   `json:"owner"`
+		Repo        string   `json:"repo"`
+		Tags        []string `json:"tags,omitempty"`
 	}
 
 	items := make([]resultItem, 0, len(results))
@@ -48,8 +55,26 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 			Stars:       r.Stars,
 			Owner:       r.Owner,
 			Repo:        r.Repo,
+			Tags:        r.Tags,
 		})
 	}
 
 	writeJSON(w, map[string]any{"results": items})
+}
+
+// searchBuiltinIndex builds the hub index from local skills and searches it in-memory.
+func (s *Server) searchBuiltinIndex(query string, limit int) ([]search.SearchResult, error) {
+	sourcePath := s.cfg.Source
+	if s.IsProjectMode() {
+		sourcePath = filepath.Join(s.projectRoot, ".skillshare", "skills")
+	}
+	idx, err := hub.BuildIndex(sourcePath, false)
+	if err != nil {
+		return nil, err
+	}
+	data, err := json.Marshal(idx)
+	if err != nil {
+		return nil, err
+	}
+	return search.SearchFromIndexJSON(query, limit, data)
 }

@@ -17,9 +17,10 @@ type indexDocument struct {
 }
 
 type indexSkill struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Source      string `json:"source"`
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	Source      string   `json:"source"`
+	Tags        []string `json:"tags"`
 }
 
 // SearchFromIndexURL searches skills from a private index.json URL or local path.
@@ -29,7 +30,21 @@ func SearchFromIndexURL(query string, limit int, indexURL string) ([]SearchResul
 	if err != nil {
 		return nil, err
 	}
+	return searchIndex(query, limit, doc)
+}
 
+// SearchFromIndexJSON searches skills from raw index JSON data.
+// Used by the server to search an in-memory index without file I/O.
+func SearchFromIndexJSON(query string, limit int, data []byte) ([]SearchResult, error) {
+	limit = normalizeLimit(limit)
+	var doc indexDocument
+	if err := json.Unmarshal(data, &doc); err != nil {
+		return nil, fmt.Errorf("parse hub: %w", err)
+	}
+	return searchIndex(query, limit, &doc)
+}
+
+func searchIndex(query string, limit int, doc *indexDocument) ([]SearchResult, error) {
 	sourcePath := strings.TrimSpace(doc.SourcePath)
 
 	q := strings.ToLower(strings.TrimSpace(query))
@@ -53,7 +68,7 @@ func SearchFromIndexURL(query string, limit int, indexURL string) ([]SearchResul
 		}
 
 		if q != "" {
-			hay := strings.ToLower(name + "\n" + it.Description + "\n" + source)
+			hay := strings.ToLower(name + "\n" + it.Description + "\n" + source + "\n" + strings.Join(it.Tags, " "))
 			if !strings.Contains(hay, q) {
 				continue
 			}
@@ -63,6 +78,7 @@ func SearchFromIndexURL(query string, limit int, indexURL string) ([]SearchResul
 			Name:        name,
 			Description: strings.TrimSpace(it.Description),
 			Source:      source,
+			Tags:        it.Tags,
 			Owner:       owner,
 			Repo:        repo,
 		})
@@ -109,7 +125,7 @@ func isRelativeSource(source string) bool {
 func loadIndex(indexURL string) (*indexDocument, error) {
 	s := strings.TrimSpace(indexURL)
 	if s == "" {
-		return nil, fmt.Errorf("index URL is required")
+		return nil, fmt.Errorf("hub URL is required")
 	}
 
 	if strings.HasPrefix(s, "http://") || strings.HasPrefix(s, "https://") {
@@ -120,15 +136,15 @@ func loadIndex(indexURL string) (*indexDocument, error) {
 		}
 		resp, err := client.Do(req)
 		if err != nil {
-			return nil, fmt.Errorf("fetch index: %w", err)
+			return nil, fmt.Errorf("fetch hub: %w", err)
 		}
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
-			return nil, fmt.Errorf("fetch index: HTTP %d", resp.StatusCode)
+			return nil, fmt.Errorf("fetch hub: HTTP %d", resp.StatusCode)
 		}
 		var doc indexDocument
 		if err := json.NewDecoder(resp.Body).Decode(&doc); err != nil {
-			return nil, fmt.Errorf("parse index: %w", err)
+			return nil, fmt.Errorf("parse hub: %w", err)
 		}
 		return &doc, nil
 	}
@@ -140,7 +156,7 @@ func loadIndex(indexURL string) (*indexDocument, error) {
 	}
 	var doc indexDocument
 	if err := json.Unmarshal(data, &doc); err != nil {
-		return nil, fmt.Errorf("parse index: %w", err)
+		return nil, fmt.Errorf("parse hub: %w", err)
 	}
 	return &doc, nil
 }

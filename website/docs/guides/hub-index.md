@@ -91,15 +91,47 @@ git push
 
 ## Web Dashboard
 
-The web dashboard (`skillshare ui`) supports private index search:
+The web dashboard (`skillshare ui`) supports hub search:
 
 1. Open the **Search** page
-2. Click **Private Index** tab
-3. **Current Skills** is built-in — searches your local installed skills
-4. Click **Add Index** to add custom index URLs
-5. Search and install directly from the UI
+2. Click **Hub** tab
+3. Click **Manage** to add hub sources (URL or local path)
+4. Select a hub from the dropdown and search
+5. Install directly from the UI
 
-Saved indexes persist in browser localStorage.
+Saved hubs persist in browser localStorage.
+
+### Hub Search
+
+<p align="center">
+  <img src="/img/web-hub-search-demo.png" alt="Hub search page" width="720" />
+</p>
+
+Select a hub source from the dropdown and search for skills.
+
+### Switch Between Hubs
+
+<p align="center">
+  <img src="/img/web-hub-dropdown-demo.png" alt="Hub dropdown selector" width="720" />
+</p>
+
+Use the dropdown to switch between multiple hub sources.
+
+### Manage Hubs
+
+<p align="center">
+  <img src="/img/web-hub-manage-demo.png" alt="Manage hubs modal" width="720" />
+</p>
+
+Click **Manage** to add, view, or remove hub sources. Enter a URL or local file path to a `skillshare-hub.json` file.
+
+### Delete Confirmation
+
+<p align="center">
+  <img src="/img/web-hub-delete-confirm-demo.png" alt="Hub delete confirmation" width="720" />
+</p>
+
+Removing a hub requires confirmation to prevent accidental deletion.
 
 ## Index Schema
 
@@ -114,7 +146,8 @@ The index follows Schema v1:
     {
       "name": "my-skill",
       "description": "Does something useful",
-      "source": "owner/repo/.claude/skills/my-skill"
+      "source": "owner/repo/.claude/skills/my-skill",
+      "tags": ["workflow", "productivity"]
     }
   ]
 }
@@ -122,13 +155,12 @@ The index follows Schema v1:
 
 ### Essential Fields (Consumer Contract)
 
-Only three fields are required for search and install to work:
-
 | Field | Required | Description |
 |-------|----------|-------------|
 | `name` | Yes | Skill display name |
 | `source` | Yes | Install source (GitHub shorthand, URL, or local path) |
 | `description` | Recommended | Short description for search matching |
+| `tags` | No | Classification tags for filtering and grouping |
 
 ### Document-Level Fields
 
@@ -171,12 +203,14 @@ You can create an index manually without using `hub index`:
     {
       "name": "company-style",
       "description": "Company coding standards",
-      "source": "github.com/company/skills/company-style"
+      "source": "github.com/company/skills/company-style",
+      "tags": ["quality", "workflow"]
     },
     {
       "name": "deploy-helper",
       "description": "Deployment automation",
-      "source": "gitlab.com/ops/skills/deploy-helper"
+      "source": "gitlab.com/ops/skills/deploy-helper",
+      "tags": ["devops"]
     }
   ]
 }
@@ -184,6 +218,7 @@ You can create an index manually without using `hub index`:
 
 Tips for hand-written indexes:
 - `sourcePath` is optional — omit if all sources are absolute
+- `tags` is optional — useful for filtering on the website or in search
 - Skills with empty `name` are skipped
 - Results are sorted by name alphabetically
 

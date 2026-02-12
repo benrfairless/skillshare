@@ -85,6 +85,18 @@ description: Reviews code for bugs, style issues, and improvements
 
 ---
 
+## Optional Fields
+
+### `tags`
+
+Classification tags for filtering and grouping in hub indexes. When you run `skillshare hub index`, tags from SKILL.md frontmatter are included in the generated `skillshare-hub.json`.
+
+```yaml
+tags: git, workflow
+```
+
+Tags are also searchable — `skillshare search workflow --hub ...` matches skills tagged with "workflow".
+
 ## Custom Metadata
 
 You can add any custom fields:
@@ -95,11 +107,10 @@ name: my-skill
 description: My custom skill
 author: Your Name
 version: 1.0.0
-tags: [productivity, code-review]
 ---
 ```
 
-These are stored but not used by skillshare itself.
+Custom fields are stored in the frontmatter but not used by skillshare itself.
 
 ---
 

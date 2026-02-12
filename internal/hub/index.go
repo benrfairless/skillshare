@@ -25,9 +25,10 @@ type Index struct {
 // In minimal mode only Name, Description, Source are emitted.
 // In full mode all metadata fields are included (with omitempty).
 type SkillEntry struct {
-	Name        string `json:"name"`
-	Description string `json:"description,omitempty"`
-	Source      string `json:"source,omitempty"`
+	Name        string   `json:"name"`
+	Description string   `json:"description,omitempty"`
+	Source      string   `json:"source,omitempty"`
+	Tags        []string `json:"tags,omitempty"`
 
 	// Metadata fields — only emitted with --full.
 	FlatName    string `json:"flatName,omitempty"`
@@ -79,6 +80,9 @@ func BuildIndex(sourcePath string, full bool) (*Index, error) {
 		if desc, _ := readSkillDescription(d.SourcePath); desc != "" {
 			item.Description = desc
 		}
+		if tags := readSkillTags(d.SourcePath); len(tags) > 0 {
+			item.Tags = tags
+		}
 
 		if full {
 			// Only emit flatName when different from name.
@@ -126,6 +130,42 @@ func WriteIndex(path string, idx *Index) error {
 	}
 	data = append(data, '\n')
 	return os.WriteFile(path, data, 0644)
+}
+
+// readSkillTags extracts the tags from SKILL.md frontmatter.
+// Supports comma-separated inline values: tags: git, workflow
+func readSkillTags(skillPath string) []string {
+	data, err := os.ReadFile(filepath.Join(skillPath, "SKILL.md"))
+	if err != nil {
+		return nil
+	}
+	lines := strings.Split(string(data), "\n")
+	if len(lines) < 3 || strings.TrimSpace(lines[0]) != "---" {
+		return nil
+	}
+	for i := 1; i < len(lines); i++ {
+		line := strings.TrimSpace(lines[i])
+		if line == "---" {
+			break
+		}
+		if strings.HasPrefix(strings.ToLower(line), "tags:") {
+			raw := strings.TrimSpace(line[len("tags:"):])
+			raw = strings.Trim(raw, `"'`)
+			if raw == "" {
+				return nil
+			}
+			parts := strings.Split(raw, ",")
+			tags := make([]string, 0, len(parts))
+			for _, p := range parts {
+				t := strings.TrimSpace(p)
+				if t != "" {
+					tags = append(tags, t)
+				}
+			}
+			return tags
+		}
+	}
+	return nil
 }
 
 // readSkillDescription extracts the description from SKILL.md frontmatter.
