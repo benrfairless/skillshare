@@ -14,7 +14,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query().Get("q")
 	hubParam := r.URL.Query().Get("hub")
 
-	limit := 20
+	limit := 0 // default: no limit for hub search
 	if l := r.URL.Query().Get("limit"); l != "" {
 		if parsed, err := strconv.Atoi(l); err == nil {
 			limit = parsed
@@ -29,6 +29,10 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	case hubParam != "":
 		results, err = search.SearchFromIndexURL(query, limit, hubParam)
 	default:
+		// GitHub search always needs a limit
+		if limit <= 0 {
+			limit = 20
+		}
 		results, err = search.Search(query, limit)
 	}
 	if err != nil {

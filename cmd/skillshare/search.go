@@ -48,6 +48,7 @@ func cmdSearch(args []string) error {
 	var hubInput string // raw --hub value
 	var hubBare bool    // --hub with no value
 	var limit int = 20
+	var limitSet bool
 
 	// Parse remaining arguments
 	i := 0
@@ -69,6 +70,7 @@ func cmdSearch(args []string) error {
 				hubBare = true
 			}
 		case key == "--limit" || key == "-n":
+			limitSet = true
 			if hasEq {
 				n, err := strconv.Atoi(strings.TrimSpace(val))
 				if err != nil || n < 1 {
@@ -109,6 +111,11 @@ func cmdSearch(args []string) error {
 			return err
 		}
 		indexURL = resolved
+	}
+
+	// Hub search returns all results by default (limit=0 means no limit)
+	if indexURL != "" && !limitSet {
+		limit = 0
 	}
 
 	// JSON mode: silent search, output JSON

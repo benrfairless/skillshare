@@ -72,8 +72,8 @@ export const api = {
   // Search & Install
   search: (q: string, limit = 20) =>
     apiFetch<{ results: SearchResult[] }>(`/search?q=${encodeURIComponent(q)}&limit=${limit}`),
-  searchHub: (q: string, hubURL: string, limit = 20) =>
-    apiFetch<{ results: SearchResult[] }>(`/search?q=${encodeURIComponent(q)}&limit=${limit}&hub=${encodeURIComponent(hubURL)}`),
+  searchHub: (q: string, hubURL: string) =>
+    apiFetch<{ results: SearchResult[] }>(`/search?q=${encodeURIComponent(q)}&hub=${encodeURIComponent(hubURL)}`),
   check: () => apiFetch<CheckResult>('/check'),
   discover: (source: string) =>
     apiFetch<DiscoverResult>('/discover', {

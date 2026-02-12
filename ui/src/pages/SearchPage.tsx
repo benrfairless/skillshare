@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { Search, Star, Download, Globe, Database, Settings } from 'lucide-react';
 import Card from '../components/Card';
 import Badge from '../components/Badge';
@@ -43,6 +43,25 @@ export default function SearchPage() {
   // Install state
   const [installing, setInstalling] = useState<string | null>(null);
 
+  // Incremental rendering
+  const PAGE_SIZE = 20;
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  const filteredResults = useMemo(() => {
+    if (!results || results.length === 0) return [];
+    if (!filter) return results;
+    const f = filter.toLowerCase();
+    return results.filter((r) =>
+      r.name.toLowerCase().includes(f) ||
+      r.description.toLowerCase().includes(f) ||
+      (r.tags ?? []).some((t) => t.toLowerCase().includes(f)),
+    );
+  }, [results, filter]);
+
+  const visible = filteredResults.slice(0, visibleCount);
+  const hasMore = visible.length < filteredResults.length;
+
   // Discovery flow state
   const [discoveredSkills, setDiscoveredSkills] = useState<DiscoveredSkill[]>([]);
   const [showPicker, setShowPicker] = useState(false);
@@ -53,6 +72,27 @@ export default function SearchPage() {
   useEffect(() => {
     fetchHubConfig();
   }, []);
+
+  // Reset visible count when results or filter change
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [filteredResults]);
+
+  // IntersectionObserver: load more when sentinel scrolls into view
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisibleCount((prev) => prev + PAGE_SIZE);
+        }
+      },
+      { rootMargin: '200px' },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasMore]);
 
   const fetchHubConfig = async () => {
     try {
@@ -375,17 +415,7 @@ export default function SearchPage() {
       </Card>
 
       {/* Results */}
-      {results && results.length > 0 && (() => {
-        const filteredResults = results.filter((r) => {
-          if (!filter) return true;
-          const f = filter.toLowerCase();
-          return (
-            r.name.toLowerCase().includes(f) ||
-            r.description.toLowerCase().includes(f) ||
-            (r.tags ?? []).some((t) => t.toLowerCase().includes(f))
-          );
-        });
-        return (
+      {results && results.length > 0 && (
         <div className="space-y-4">
           <div className="flex items-center gap-3 flex-wrap">
             <p className="text-base text-pencil-light whitespace-nowrap">
@@ -406,10 +436,10 @@ export default function SearchPage() {
               />
             </div>
           </div>
-          {filteredResults.map((r, i) => (
+          {visible.map((r) => (
             <Card
               key={r.source}
-              className={i % 2 === 0 ? 'rotate-[-0.15deg]' : 'rotate-[0.15deg]'}
+              className="odd:rotate-[-0.15deg] even:rotate-[0.15deg]"
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
@@ -458,9 +488,9 @@ export default function SearchPage() {
               </div>
             </Card>
           ))}
+          {hasMore && <div ref={sentinelRef} className="h-4" />}
         </div>
-        );
-      })()}
+      )}
 
       {results && results.length === 0 && (
         <EmptyState

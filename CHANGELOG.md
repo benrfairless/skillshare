@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.12.2] - 2026-02-13
+
+### Fixed
+- **Hub search returns all results** — hub/index search no longer capped at 20; `limit=0` means no limit (GitHub search default unchanged)
+- **Search filter ghost cards** — replaced IIFE rendering with `useMemo` to fix stale DOM when filtering results
+
+### Added
+- **Scroll-to-load in Web UI** — search results render 20 at a time with IntersectionObserver-based incremental loading
+
 ## [0.12.1] - 2026-02-13
 
 ### Added

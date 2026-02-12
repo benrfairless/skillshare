@@ -25,8 +25,8 @@ type indexSkill struct {
 }
 
 // SearchFromIndexURL searches skills from a private index.json URL or local path.
+// A limit of 0 means no limit (return all results).
 func SearchFromIndexURL(query string, limit int, indexURL string) ([]SearchResult, error) {
-	limit = normalizeLimit(limit)
 	doc, err := loadIndex(indexURL)
 	if err != nil {
 		return nil, err
@@ -36,8 +36,8 @@ func SearchFromIndexURL(query string, limit int, indexURL string) ([]SearchResul
 
 // SearchFromIndexJSON searches skills from raw index JSON data.
 // Used by the server to search an in-memory index without file I/O.
+// A limit of 0 means no limit (return all results).
 func SearchFromIndexJSON(query string, limit int, data []byte) ([]SearchResult, error) {
-	limit = normalizeLimit(limit)
 	var doc indexDocument
 	if err := json.Unmarshal(data, &doc); err != nil {
 		return nil, fmt.Errorf("parse hub: %w", err)
@@ -89,7 +89,7 @@ func searchIndex(query string, limit int, doc *indexDocument) ([]SearchResult, e
 	sort.Slice(results, func(i, j int) bool {
 		return results[i].Name < results[j].Name
 	})
-	if len(results) > limit {
+	if limit > 0 && len(results) > limit {
 		results = results[:limit]
 	}
 	return results, nil
