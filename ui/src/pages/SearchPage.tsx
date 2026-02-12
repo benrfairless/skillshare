@@ -1,44 +1,35 @@
 import { useState, useCallback } from 'react';
-import { Search, Star, Download, Globe, Database, Plus, Trash2, Server } from 'lucide-react';
+import { Search, Star, Download, Globe, Database, Settings } from 'lucide-react';
 import Card from '../components/Card';
 import Badge from '../components/Badge';
 import HandButton from '../components/HandButton';
-import { HandInput } from '../components/HandInput';
+import { HandInput, HandSelect } from '../components/HandInput';
 import SkillPickerModal from '../components/SkillPickerModal';
+import HubManagerModal, { type SavedHub } from '../components/HubManagerModal';
 import EmptyState from '../components/EmptyState';
 import { useToast } from '../components/Toast';
 import { api, type SearchResult, type DiscoveredSkill } from '../api/client';
 
-type SearchMode = 'github' | 'index';
-
-interface SavedIndex {
-  label: string;
-  url: string;
-}
-
-const BUILT_IN_INDEX: SavedIndex = {
-  label: 'Current Skills',
-  url: '/api/hub/index',
-};
+type SearchMode = 'github' | 'hub';
 
 const LS_MODE = 'search:mode';
-const LS_SELECTED = 'search:selectedIndex';
-const LS_SAVED = 'search:savedIndexes';
+const LS_SELECTED = 'search:selectedHub';
+const LS_SAVED = 'search:savedHubs';
 
 function loadMode(): SearchMode {
   const v = localStorage.getItem(LS_MODE);
-  return v === 'index' ? 'index' : 'github';
+  return v === 'hub' ? 'hub' : 'github';
 }
 
-function loadSelectedIndex(): string {
-  return localStorage.getItem(LS_SELECTED) ?? BUILT_IN_INDEX.url;
+function loadSelectedHub(): string {
+  return localStorage.getItem(LS_SELECTED) ?? '';
 }
 
-function loadSavedIndexes(): SavedIndex[] {
+function loadSavedHubs(): SavedHub[] {
   try {
     const raw = localStorage.getItem(LS_SAVED);
     if (!raw) return [];
-    return JSON.parse(raw) as SavedIndex[];
+    return JSON.parse(raw) as SavedHub[];
   } catch {
     return [];
   }
@@ -55,12 +46,10 @@ export default function SearchPage() {
   const [searching, setSearching] = useState(false);
   const { toast } = useToast();
 
-  // Index state
-  const [selectedIndex, setSelectedIndex] = useState(loadSelectedIndex);
-  const [savedIndexes, setSavedIndexes] = useState<SavedIndex[]>(loadSavedIndexes);
-  const [showAddIndex, setShowAddIndex] = useState(false);
-  const [newLabel, setNewLabel] = useState('');
-  const [newURL, setNewURL] = useState('');
+  // Hub state
+  const [selectedHub, setSelectedHub] = useState(loadSelectedHub);
+  const [savedHubs, setSavedHubs] = useState<SavedHub[]>(loadSavedHubs);
+  const [showHubManager, setShowHubManager] = useState(false);
 
   // Install state
   const [installing, setInstalling] = useState<string | null>(null);
@@ -71,8 +60,6 @@ export default function SearchPage() {
   const [pendingSource, setPendingSource] = useState('');
   const [batchInstalling, setBatchInstalling] = useState(false);
 
-  const allIndexes = [BUILT_IN_INDEX, ...savedIndexes];
-
   const switchMode = useCallback((newMode: SearchMode) => {
     setMode(newMode);
     setResults(null);
@@ -81,11 +68,15 @@ export default function SearchPage() {
 
   const handleSearch = async (searchQuery?: string) => {
     const q = searchQuery ?? query;
+    if (mode === 'hub' && !selectedHub) {
+      toast('Add a hub source first', 'error');
+      return;
+    }
     setSearching(true);
     try {
       let res: { results: SearchResult[] };
-      if (mode === 'index') {
-        res = await api.searchHub(q, selectedIndex);
+      if (mode === 'hub') {
+        res = await api.searchHub(q, selectedHub);
       } else {
         res = await api.search(q);
       }
@@ -172,50 +163,24 @@ export default function SearchPage() {
     }
   };
 
-  const handleAddIndex = () => {
-    const url = normalizeURL(newURL);
-    if (!url) {
-      toast('URL is required', 'error');
-      return;
-    }
-    const label = newLabel.trim() || url.split('/').pop() || 'Untitled';
-
-    // Dedup check
-    const allURLs = allIndexes.map((idx) => normalizeURL(idx.url));
-    if (allURLs.includes(url)) {
-      toast('This index URL already exists', 'error');
-      return;
-    }
-
-    const updated = [...savedIndexes, { label, url }];
-    setSavedIndexes(updated);
+  const handleHubsSave = (updated: SavedHub[]) => {
+    setSavedHubs(updated);
     localStorage.setItem(LS_SAVED, JSON.stringify(updated));
-    setSelectedIndex(url);
-    localStorage.setItem(LS_SELECTED, url);
-    setNewLabel('');
-    setNewURL('');
-    setShowAddIndex(false);
-    toast(`Added index: ${label}`, 'success');
+    // If selected hub was removed, select first available or clear
+    if (updated.length === 0) {
+      setSelectedHub('');
+      localStorage.setItem(LS_SELECTED, '');
+    } else if (!updated.some((h) => normalizeURL(h.url) === normalizeURL(selectedHub))) {
+      setSelectedHub(updated[0].url);
+      localStorage.setItem(LS_SELECTED, updated[0].url);
+    }
   };
 
-  const handleDeleteIndex = (url: string) => {
-    const updated = savedIndexes.filter((idx) => normalizeURL(idx.url) !== normalizeURL(url));
-    setSavedIndexes(updated);
-    localStorage.setItem(LS_SAVED, JSON.stringify(updated));
-    if (normalizeURL(selectedIndex) === normalizeURL(url)) {
-      setSelectedIndex(BUILT_IN_INDEX.url);
-      localStorage.setItem(LS_SELECTED, BUILT_IN_INDEX.url);
-    }
-    toast('Index removed', 'info');
-  };
-
-  const handleSelectIndex = (url: string) => {
-    setSelectedIndex(url);
+  const handleSelectHub = (url: string) => {
+    setSelectedHub(url);
     localStorage.setItem(LS_SELECTED, url);
     setResults(null);
   };
-
-  const currentIndexLabel = allIndexes.find((idx) => normalizeURL(idx.url) === normalizeURL(selectedIndex))?.label ?? selectedIndex;
 
   return (
     <div className="animate-sketch-in">
@@ -243,89 +208,51 @@ export default function SearchPage() {
           GitHub
         </HandButton>
         <HandButton
-          onClick={() => switchMode('index')}
-          variant={mode === 'index' ? 'primary' : 'secondary'}
+          onClick={() => switchMode('hub')}
+          variant={mode === 'hub' ? 'primary' : 'secondary'}
           size="sm"
         >
           <Database size={14} strokeWidth={2.5} />
-          Private Index
+          Hub
         </HandButton>
       </div>
 
-      {/* Index selector (only in index mode) */}
-      {mode === 'index' && (
-        <Card className="mb-4">
-          <div className="flex items-center gap-2 mb-3">
-            <Server size={16} strokeWidth={2.5} className="text-pencil-light" />
-            <span className="font-medium text-pencil text-sm">Index Source</span>
-          </div>
-          <div className="flex flex-wrap gap-2 mb-3">
-            {allIndexes.map((idx) => {
-              const isSelected = normalizeURL(idx.url) === normalizeURL(selectedIndex);
-              const isBuiltIn = idx.url === BUILT_IN_INDEX.url;
-              return (
-                <div key={idx.url} className="flex items-center gap-1">
-                  <HandButton
-                    onClick={() => handleSelectIndex(idx.url)}
-                    variant={isSelected ? 'primary' : 'secondary'}
-                    size="sm"
-                  >
-                    {idx.label}
-                  </HandButton>
-                  {!isBuiltIn && (
-                    <button
-                      onClick={() => handleDeleteIndex(idx.url)}
-                      className="text-pencil-light hover:text-danger transition-colors p-1"
-                      title="Remove index"
-                    >
-                      <Trash2 size={12} strokeWidth={2.5} />
-                    </button>
-                  )}
-                </div>
-              );
-            })}
-            <HandButton
-              onClick={() => setShowAddIndex(!showAddIndex)}
-              variant="secondary"
-              size="sm"
-            >
-              <Plus size={14} strokeWidth={2.5} />
-              Add Index
-            </HandButton>
-          </div>
-
-          {/* Add index form */}
-          {showAddIndex && (
-            <div className="border-t border-dashed border-pencil-light pt-3 mt-1">
-              <div className="flex gap-2 mb-2">
-                <HandInput
-                  type="text"
-                  placeholder="Label (optional)"
-                  value={newLabel}
-                  onChange={(e) => setNewLabel(e.target.value)}
-                  className="flex-1"
-                />
-                <HandInput
-                  type="text"
-                  placeholder="URL or file path"
-                  value={newURL}
-                  onChange={(e) => setNewURL(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleAddIndex()}
-                  className="flex-[2]"
-                />
-                <HandButton onClick={handleAddIndex} variant="primary" size="sm">
-                  Save
-                </HandButton>
-              </div>
-              <p className="text-xs text-muted-dark">
-                Enter an HTTP(S) URL or local file path to a skillshare-hub.json file.
+      {/* Hub selector (only in hub mode) */}
+      {mode === 'hub' && (
+        <Card className="mb-4 !overflow-visible">
+          {savedHubs.length > 0 ? (
+            <div className="flex items-center gap-2">
+              <HandSelect
+                value={selectedHub}
+                onChange={handleSelectHub}
+                options={savedHubs.map((h) => ({ value: h.url, label: h.label }))}
+                className="flex-1"
+              />
+              <HandButton
+                onClick={() => setShowHubManager(true)}
+                variant="ghost"
+                size="sm"
+                title="Manage hubs"
+              >
+                <Settings size={14} strokeWidth={2.5} />
+                Manage
+              </HandButton>
+            </div>
+          ) : (
+            <div className="text-center py-3">
+              <p className="text-base text-muted-dark mb-3">
+                No hubs configured. Add one to get started.
               </p>
+              <HandButton
+                onClick={() => setShowHubManager(true)}
+                variant="secondary"
+                size="sm"
+              >
+                <Settings size={14} strokeWidth={2.5} />
+                Manage Hubs
+              </HandButton>
             </div>
           )}
-
-          <p className="text-xs text-muted-dark mt-1">
-            Searching: <span className="font-medium break-all">{currentIndexLabel}</span>
-          </p>
         </Card>
       )}
 
@@ -340,7 +267,7 @@ export default function SearchPage() {
             />
             <HandInput
               type="text"
-              placeholder={mode === 'github' ? 'Search GitHub for skills...' : 'Search index...'}
+              placeholder={mode === 'github' ? 'Search GitHub for skills...' : 'Search hub...'}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch(query)}
@@ -426,7 +353,7 @@ export default function SearchPage() {
           description={
             mode === 'github'
               ? 'Try different search terms or check your GITHUB_TOKEN.'
-              : 'Try different search terms or check your index.'
+              : 'Try different search terms or check your hub source.'
           }
         />
       )}
@@ -461,6 +388,14 @@ export default function SearchPage() {
           </HandButton>
         </div>
       )}
+
+      {/* Hub Manager Modal */}
+      <HubManagerModal
+        open={showHubManager}
+        hubs={savedHubs}
+        onSave={handleHubsSave}
+        onClose={() => setShowHubManager(false)}
+      />
 
       {/* Skill Picker Modal for multi-skill repos */}
       <SkillPickerModal
