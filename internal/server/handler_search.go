@@ -9,6 +9,7 @@ import (
 
 func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query().Get("q")
+	indexURL := r.URL.Query().Get("index_url")
 
 	limit := 20
 	if l := r.URL.Query().Get("limit"); l != "" {
@@ -17,7 +18,13 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	results, err := search.Search(query, limit)
+	var results []search.SearchResult
+	var err error
+	if indexURL != "" {
+		results, err = search.SearchFromIndexURL(query, limit, indexURL)
+	} else {
+		results, err = search.Search(query, limit)
+	}
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return

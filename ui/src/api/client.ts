@@ -51,9 +51,14 @@ export const api = {
   diff: (target?: string) =>
     apiFetch<{ diffs: DiffTarget[] }>(`/diff${target ? '?target=' + encodeURIComponent(target) : ''}`),
 
+  // Hub
+  hubIndex: () => apiFetch<HubIndex>('/hub/index'),
+
   // Search & Install
   search: (q: string, limit = 20) =>
     apiFetch<{ results: SearchResult[] }>(`/search?q=${encodeURIComponent(q)}&limit=${limit}`),
+  searchIndex: (q: string, indexURL: string, limit = 20) =>
+    apiFetch<{ results: SearchResult[] }>(`/search?q=${encodeURIComponent(q)}&limit=${limit}&index_url=${encodeURIComponent(indexURL)}`),
   check: () => apiFetch<CheckResult>('/check'),
   discover: (source: string) =>
     apiFetch<DiscoverResult>('/discover', {
@@ -235,6 +240,13 @@ export interface SyncResult {
 export interface DiffTarget {
   target: string;
   items: { skill: string; action: string; reason?: string }[];
+}
+
+export interface HubIndex {
+  schemaVersion: number;
+  generatedAt: string;
+  sourcePath?: string;
+  skills: { name: string; description?: string; source?: string }[];
 }
 
 export interface SearchResult {
